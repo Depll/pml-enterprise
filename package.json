@@ -1,0 +1,13 @@
+{
+  "name": "milano-enterprise",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "backend:dev": "npm run start:dev --workspace=backend",
+    "frontend:dev": "npm run dev --workspace=frontend"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
+}
