@@ -1,6 +1,12 @@
 import React from 'react';
 
-export const Footer: React.FC = () => {
+// Props für das Öffnen von Impressum und Datenschutz Modals
+interface FooterProps {
+  onOpenImpressum: () => void;
+  onOpenDatenschutz: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschutz }) => {
   return (
     <footer className="pml-milano-footer">
       <div className="pml-footer-inner">
@@ -75,10 +81,26 @@ export const Footer: React.FC = () => {
             <h4>Rechtliches</h4>
             <ul className="pml-links-list">
               <li>
-                <a href="#impressum" onClick={(e) => e.preventDefault()}>Impressum</a>
+                <a 
+                  href="#impressum" 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    onOpenImpressum(); 
+                  }}
+                >
+                  Impressum
+                </a>
               </li>
               <li>
-                <a href="#datenschutz" onClick={(e) => e.preventDefault()}>Datenschutz</a>
+                <a 
+                  href="#datenschutz" 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    onOpenDatenschutz(); 
+                  }}
+                >
+                  Datenschutz
+                </a>
               </li>
             </ul>
           </div>

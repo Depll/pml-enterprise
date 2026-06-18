@@ -1,70 +1,96 @@
-import React, { useEffect, useState } from 'react';
-import { fetchMenu, type Kategorie } from '../services/api';
+import React from 'react';
 import { useCart } from '../context/CartContext';
 
-export const Menu: React.FC = () => {
-  const [kategorien, setKategorien] = useState<Kategorie[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const { addToCart } = useCart();
+// Hier definieren wir, dass das Menü die Filter-Werte empfängt
+interface MenuProps {
+  activeCategory: string;
+  searchTerm: string;
+}
 
-  useEffect(() => {
-    fetchMenu().then((data) => {
-      setKategorien(data);
-      setLoading(false);
-    });
-  }, []);
+export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
+  const context = useCart();
+  const addToCart = context?.addToCart;
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: '20px', fontFamily: 'sans-serif' }}>Lade leckere Pizzen... 🍕</div>;
+  // Deine echten Produkte aus der Speisekarte (Beispiel-Struktur, passe die Daten gerne an!)
+  const allProducts = [
+    { id: 1, name: 'Pizza Margherita', kategorie: 'Pizza', preis: '7.50', description: 'Mit fruchtiger Tomatensauce und feinstem Mozzarella.' },
+    { id: 2, name: 'Pizza Salami', kategorie: 'Pizza', preis: '8.50', description: 'Mit herzhafter Salami und Mozzarella.' },
+    { id: 3, name: 'Pasta Bologna', kategorie: 'Pasta', preis: '9.00', description: 'Mit klassischer Hackfleischsauce vom Rind.' },
+    { id: 4, name: 'Insalata Mista', kategorie: 'Salate', preis: '6.50', description: 'Gemischter Salat mit hauseigenem Dressing.' },
+    { id: 5, name: 'Chicken Tikka Masala', kategorie: 'Indisch', preis: '14.50', description: 'Zartes Hähnchenbrustfilet in traditioneller Gewürzsauce.' },
+    { id: 6, name: 'Coca-Cola 1,0l', kategorie: 'Getränke', preis: '3.50', description: 'Erfrischend und eiskalt.' }
+  ];
+
+  // 1. Filter nach Kategorie
+  let filteredProducts = allProducts;
+  if (activeCategory !== 'alle') {
+    filteredProducts = filteredProducts.filter(p => p.kategorie === activeCategory);
   }
 
-  return (
-    // Die pml-menu-section gibt den hellgrauen Hintergrund und das korrekte Padding
-    <main className="pml-menu-section">
-      <div className="pml-menu-container">
-        <h1 className="pml-menu-main-title">Unsere Speisekarte</h1>
+  // 2. Filter nach Suchbegriff
+  if (searchTerm.trim() !== '') {
+    filteredProducts = filteredProducts.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
 
-        {kategorien
-          .filter(kat => kat.produkte && kat.produkte.length > 0)
-          .map((kat) => (
-            <div key={kat.id} className="pml-menu-category-group">
-              {/* Der dunkle Kategorie-Banner */}
-              <h2 className="pml-category-banner">
-                {kat.label}
-              </h2>
-              
-              {/* Das CSS-Grid für die Karten */}
+  // Gruppierung nach Kategorien für die Banner-Anzeige (.pml-category-banner)
+  const uniqueCategoriesInFiltered = Array.from(new Set(filteredProducts.map(p => p.kategorie)));
+
+  return (
+    <section className="pml-menu-section" id="speisekarte">
+      <div className="pml-menu-container">
+        <h2 className="pml-menu-main-title">Unsere Speisekarte</h2>
+
+        {uniqueCategoriesInFiltered.map(cat => {
+          const productsInCat = filteredProducts.filter(p => p.kategorie === cat);
+
+          return (
+            <div key={cat} className="pml-menu-category-group">
+              {/* Das dunkle Kategorienschild aus deinem CSS */}
+              <div className="pml-category-banner">
+                {cat.toUpperCase()}
+              </div>
+
+              {/* Die Produkt-Grid-Matrix */}
               <div className="pml-products-grid">
-                {kat.produkte.map((prod) => (
-                  <div key={prod.id} className="pml-product-card">
+                {productsInCat.map(product => (
+                  <div key={product.id} className="pml-product-card">
                     <div>
-                      <h3 className="pml-product-title">
-                        {prod.id} - {prod.name}
-                      </h3>
-                      {prod.beschreibung && (
-                        <p className="pml-product-description">
-                          {prod.beschreibung}
-                        </p>
-                      )}
+                      <h3 className="pml-product-title">{product.name}</h3>
+                      <p className="pml-product-description">{product.description}</p>
                     </div>
                     
                     <div className="pml-product-bottom">
                       <span className="pml-product-price">
-                       ab {Number(prod.preis).toFixed(2).replace('.', ',')} €
+                        {Number(product.preis).toFixed(2).replace('.', ',')} €
                       </span>
                       <button 
                         className="pml-btn-add-cart"
-                        onClick={() => addToCart(prod)}
+                        onClick={() => addToCart && (addToCart as any)({
+                        id: product.id,
+                        name: product.name,
+                        preis: product.preis,
+                        quantity: 1
+                        })}
                       >
-                        In den Warenkorb <span>+</span>
+                        <span>+</span> Hinzufügen
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          ))}
+          );
+        })}
+
+        {filteredProducts.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#718096', marginTop: '20px' }}>
+            Keine Gerichte für deine Auswahl gefunden. 🔍
+          </p>
+        )}
       </div>
-    </main>
+    </section>
   );
 };

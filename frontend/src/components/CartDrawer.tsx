@@ -4,12 +4,14 @@ import { useCart } from '../context/CartContext';
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenCheckout: () => void; // Hier deklariert
 }
 
-export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
+// Hier fügen wir onOpenCheckout in den Klammern hinzu, damit wir es nutzen können:
+export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenCheckout }) => {
   const context = useCart();
   const cart = context?.cart || [];
-  const removeFromCart = context?.removeFromCart; // Falls in deiner API vorhanden
+  const removeFromCart = context?.removeFromCart; 
 
   if (!isOpen) return null;
 
@@ -20,8 +22,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   }, 0);
 
   return (
-    <div className="pml-cart-overlay">
-      <div className="pml-cart-drawer">
+    <div className="pml-cart-overlay" onClick={onClose}>
+      {/* stopPropagation verhindert, dass der Drawer schließt, wenn man in den Drawer klickt */}
+      <div className="pml-cart-drawer" onClick={(e) => e.stopPropagation()}>
         
         {/* Header */}
         <div className="pml-cart-header">
@@ -34,7 +37,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
           {cart.length === 0 ? (
             <div className="pml-cart-empty-section">
               <div className="pml-empty-msg-container">
-                <p>Dein Warenkorb is leer. 🍕</p>
+                <p>Dein Warenkorb ist leer. 🍕</p>
               </div>
             </div>
           ) : (
@@ -71,7 +74,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
             </span>
           </div>
           <div className="pml-cart-action-area">
-            <button className="pml-btn-address-submit" disabled={cart.length === 0}>
+            {/* Hier ist jetzt der Klick-Event aktiv verknüpft */}
+            <button 
+              className="pml-btn-address-submit" 
+              disabled={cart.length === 0}
+              onClick={onOpenCheckout}
+            >
               Zur Kasse gehen
             </button>
           </div>
