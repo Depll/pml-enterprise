@@ -5,9 +5,9 @@ services:
     image: postgres:16-alpine
     container_name: milano_postgres
     environment:
-      POSTGRES_USER: milano_user
-      POSTGRES_PASSWORD: milano_secure_password123
-      POSTGRES_DB: milano_pizza_db
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
     ports:
       - "5432:5432"
     volumes:
