@@ -1,0 +1,172 @@
+[
+  {
+    "category": "Panini",
+    "label": "🍞 Panini",
+    "items": [
+      {
+        "name": "1 - Pizza Brötchen 🍞",
+        "description": "mit Kräuterbutter",
+        "price": "4.00",
+        "category": "Panini",
+        "label": "🍞 Panini"
+      }
+    ]
+  },
+  {
+    "category": "Salate",
+    "label": "🥗 Salate",
+    "items": [
+      {
+        "name": "12 - Portion Tomaten & Mozzarella 🥗",
+        "description": "frische Tomaten, Mozzarella, Basilikum",
+        "price": "8.00",
+        "category": "Salate",
+        "label": "🥗 Salate"
+      }
+    ]
+  },
+  {
+    "category": "Pizza",
+    "label": "🍕 Pizza",
+    "items": [
+      {
+        "name": "38 - Margherita 🍕",
+        "description": "mit Tomatensauce, Käse",
+        "price": "8.00",
+        "category": "Pizza",
+        "label": "🍕 Pizza"
+      }
+    ]
+  },
+  {
+    "category": "Indische Gerichte",
+    "label": "🍲 Indische Gerichte",
+    "items": [
+      {
+        "name": "75 - Chicken Sabji 🍲",
+        "description": "Hähnchenbrustfilet mit verschiedenem Gemüse, frischem Ingwer,\n                  Knoblauch und indischen Gewürzen",
+        "price": "14.00",
+        "category": "Indische Gerichte",
+        "label": "🍲 Indische Gerichte"
+      }
+    ]
+  },
+  {
+    "category": "Nudelgerichte",
+    "label": "🍜 Nudelgerichte",
+    "items": [
+      {
+        "name": "89 - Pasta Napolitana 🍜",
+        "description": "mit Tomatensauce",
+        "price": "8.00",
+        "category": "Nudelgerichte",
+        "label": "🍜 Nudelgerichte"
+      }
+    ]
+  },
+  {
+    "category": "Nudelaufläufe",
+    "label": "🍲 Nudelaufläufe",
+    "items": [
+      {
+        "name": "102 - Lasagne al Forno 🍲",
+        "description": "Schichtblattnudeln mit Hackfleischsauce (Rind) und Käse\n                  überbacken",
+        "price": "10.50",
+        "category": "Nudelaufläufe",
+        "label": "🍲 Nudelaufläufe"
+      }
+    ]
+  },
+  {
+    "category": "Gyros",
+    "label": "🍖 Gyros Gerichte",
+    "items": [
+      {
+        "name": "107 - Gyros Teller 🍖",
+        "description": "mit Pommes frites, Zwiebeln, Tzatziki und Beilagensalat",
+        "price": "13.50",
+        "category": "Gyros",
+        "label": "🍖 Gyros Gerichte"
+      },
+      {
+        "name": "108 - Gyros überbacken 🍖",
+        "description": "mit Metaxasauce, Zwiebeln und Käse überbacken, dazu Pommes\n                  frites und Beilagensalat",
+        "price": "14.50",
+        "category": "Gyros",
+        "label": "🍖 Gyros Gerichte"
+      }
+    ]
+  },
+  {
+    "category": "Schnitzel",
+    "label": "🥩 Schnitzel Gerichte",
+    "items": [
+      {
+        "name": "109 - Schnitzel Wiener Art 🥩",
+        "description": "Hähnchenschnitzel mit Pommes frites, Zitronenecke und\n                  Beilagensalat",
+        "price": "11.50",
+        "category": "Schnitzel",
+        "label": "🥩 Schnitzel Gerichte"
+      }
+    ]
+  },
+  {
+    "category": "Baguettes",
+    "label": "🥖 Baguettes",
+    "items": [
+      {
+        "name": "114 - Baguette Schinken 🥖",
+        "description": "mit Vorderschinken, Remoulade, Salat, Tomaten, Gurken und Käse",
+        "price": "7.50",
+        "category": "Baguettes",
+        "label": "🥖 Baguettes"
+      }
+    ]
+  },
+  {
+    "category": "Beilagen",
+    "label": "🍟 Beilagen",
+    "items": [
+      {
+        "name": "118 - Pommes frites klein 🍟",
+        "description": "knusprige Pommes frites",
+        "price": "3.50",
+        "category": "Beilagen",
+        "label": "🍟 Beilagen"
+      }
+    ]
+  },
+  {
+    "category": "Desserts",
+    "label": "🍦 Desserts",
+    "items": [
+      {
+        "name": "123 - Tiramisu 🍦",
+        "description": "italienischer Dessertklassiker mit Mascarpone und Kaffee",
+        "price": "5.50",
+        "category": "Desserts",
+        "label": "🍦 Desserts"
+      }
+    ]
+  },
+  {
+    "category": "Getränke",
+    "label": "🥤 Getränke",
+    "items": [
+      {
+        "name": "Coca-Cola 0,33l 🥤",
+        "description": "koffeinhaltiges Erfrischungsgetränk (zzgl. Pfand)",
+        "price": "2.50",
+        "category": "Getränke",
+        "label": "🥤 Getränke"
+      },
+      {
+        "name": "Wasser 0,33l 💧",
+        "description": "Erfrischendes Mineralwasser (zzgl. Pfand)",
+        "price": "2.20",
+        "category": "Getränke",
+        "label": "🥤 Getränke"
+      }
+    ]
+  }
+]

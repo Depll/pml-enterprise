@@ -4,8 +4,11 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { KategorieEntity } from './kategorie.entity';
+import { ZutatEntity } from './zutat.entity';
 
 @Entity('produkt')
 export class ProduktEntity {
@@ -24,9 +27,14 @@ export class ProduktEntity {
   @Column({ type: 'boolean', default: true })
   aktiv: boolean;
 
-  @ManyToOne(() => KategorieEntity, (kategorie) => kategorie.id, {
+  @ManyToOne(() => KategorieEntity, (kategorie) => kategorie.produkte, {
     onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'kategorie_id' })
   kategorie: KategorieEntity;
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  @ManyToMany(() => ZutatEntity, (zutat) => zutat.produkte)
+  @JoinTable({ name: 'produkt_zutaten' })
+  zutaten: ZutatEntity[];
 }

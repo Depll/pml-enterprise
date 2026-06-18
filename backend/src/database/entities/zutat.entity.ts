@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { ProduktEntity } from './produkt.entity';
 
 @Entity('zutat')
 export class ZutatEntity {
@@ -8,9 +9,10 @@ export class ZutatEntity {
   @Column({ type: 'varchar', length: 50, unique: true })
   name: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  anzeigename: string;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 1.5 })
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0.0 })
   aufpreis: number;
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  @ManyToMany(() => ProduktEntity, (produkt) => produkt.zutaten)
+  produkte: ProduktEntity[];
 }

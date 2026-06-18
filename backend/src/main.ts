@@ -1,8 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+// import { SeedService } from './database/seeds/seed.service'; // <-- Importieren
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  app.enableCors();
+
+  // --- SEEDER START ---
+  //const seedService = app.get(SeedService);
+  // await seedService.runSeed();
+  // --------------------
+
+  await app.listen(3000);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Fehler beim Starten der App:', err);
+});
