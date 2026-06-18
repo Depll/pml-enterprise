@@ -1,111 +1,1656 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;700&display=swap');
+/* ==========================================================================
+   1. GLOBAL RESET, BASE VARIATION & CORE FONTS
+   ========================================================================== */
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+   
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
-  margin: 0;
+  font-family: "Montserrat", sans-serif;
+  background-color: #ffffff;
+  color: #000000;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
+/* ==========================================================================
+   2. NAVBAR MILANO HEADER LAYOUT (MOBILE FIRST)
+   ========================================================================== */
+
+.pml-navbar-milano {
+  width: 100%;
+  background-color: #ffffff;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 1px solid #f3f4f6;
+  overflow-x: hidden;
+}
+
+.pml-nav-container {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- BRAND LOGO COMPONENTS --- */
+.pml-logo-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  cursor: pointer;
+  margin-left: 0;
+}
+
+.pml-logo-top {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 34px;
+  font-weight: 700;
+  color: #1c2434;
+  line-height: 0.85;
+  letter-spacing: 0.7px;
+  -webkit-text-stroke: 0.5px #1c2434;
+}
+
+.pml-logo-bottom {
+  font-family: "Montserrat", sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  color: #a81c1c;
+  letter-spacing: 6px;
+  margin-top: 3px;
+  text-transform: uppercase;
+  text-align: center;
+  width: 100%;
+  padding-left: 6px;
+}
+
+/* --- DELIVERY AREA SELECTION CONTROL --- */
+.pml-delivery-area {
+  background: none;
+  border: none;
+  font-family: inherit;
+  display: flex;
+  cursor: pointer;
+  color: #1c2434;
+  font-size: 13.5px;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.pml-pin-icon {
+  color: #a81c1c;
+  font-size: 18px;
+  margin-right: 4px;
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 24;
+}
+
+.pml-delivery-text {
   font-weight: 500;
-  color: var(--text-h);
+  color: #000102;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+.pml-delivery-text strong {
+  font-weight: 800;
+  color: #000000;
+  margin-left: 3px;
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+
+.pml-change-link {
+  color: #a81c1c;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-left: 0;
 }
-p {
+
+.pml-change-link:hover {
+  text-decoration: underline;
+}
+
+/* --- HEADER SHOPPING CART COMPONENT --- */
+.pml-cart-box {
+  background: none;
+  border: none;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #000000;
+  gap: 12px;
+  margin-right: 0;
+}
+
+.pml-cart-icon {
+  font-size: 20px;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+}
+
+.pml-cart-badge {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.pml-cart-badge.pml-hidden {
+  display: none;
+}
+
+/* ==========================================================================
+   3. HERO LANDING WRAPPER (MOBILE FIRST)
+   ========================================================================== */
+
+.pml-hero-section {
+  width: 100%;
+  min-height: 842px;
+  background:
+    linear-gradient(rgba(20, 24, 33, 0.85), rgba(20, 24, 33, 0.85)),
+    url("../images/hero-bg.jpg") no-repeat center center;
+  background-size: cover;
+  display: flex;
+  align-items: center;
+  padding: 50px 0;
+}
+
+.pml-hero-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* --- PROMOTIONAL MARKETING BADGE --- */
+.pml-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(168, 28, 28, 0.2);
+  border: 1px solid rgba(168, 28, 28, 0.4);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  margin-bottom: 30px;
+}
+
+.pml-badge-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #a81c1c;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+/* --- CALLOUT HEADINGS & ADVERTISING BLOCKS --- */
+.pml-hero-title {
+  font-size: 54px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  margin-bottom: 25px;
+}
+
+.pml-hero-title .pml-highlight-red {
+  color: #a81c1c;
+}
+
+.pml-hero-description {
+  color: #cbd5e0;
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 650px;
+  margin-bottom: 45px;
+}
+
+/* --- INTERACTIVE ACTION BUTTON LAYOUTS --- */
+.pml-hero-bottom-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pml-btn-order {
+  background-color: #a81c1c;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 14px 32px;
+  border-radius: 25px;
+  transition: background-color 0.2s ease;
+  text-align: center;
+}
+
+.pml-btn-order:hover {
+  background-color: #871414;
+}
+
+/* --- VALUE PROPOSITION ARCHITECTURE --- */
+.pml-hero-features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pml-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pml-feature-icon {
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+.pml-feature-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.pml-feature-text strong {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pml-feature-text span {
+  color: #a0aec0;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   4. SEARCH ARCHITECTURE & CATEGORY ENGINE (MOBILE FIRST)
+   ========================================================================== */
+
+.pml-search-section {
+  width: 100%;
+  height: 280px;
+  background-color: #1a222d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pml-search-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pml-search-title {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 25px;
+}
+
+/* --- INPUT CONTROL ELEMENT BOUNDARIES --- */
+.pml-search-box-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 899px;
+  height: 60px;
+  margin-bottom: 25px;
+}
+
+.pml-search-field-icon {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  font-size: 22px;
+}
+
+.pml-search-input {
+  width: 100%;
+  height: 100%;
+  background-color: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 30px;
+  padding: 0 20px 0 55px;
+  color: #ffffff;
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+}
+
+.pml-search-input::placeholder {
+  color: #a0aec0;
+}
+
+/* --- HORIZONTAL SCROLLABLE CATEGORY NAVIGATION CONTROLS --- */
+.pml-categories-scroll-wrapper {
+  width: 100%;
+  max-width: 899px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.pml-categories-list {
+  display: flex;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.pml-category-item {
+  background-color: #2d3748;
+  border: 2px solid transparent;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.pml-category-item:hover {
+  background-color: #3a475c;
+}
+
+.pml-category-item.pml-active {
+  border-color: #ffffff;
+  background-color: #2d3748;
+}
+
+/* --- WEBKIT SCROLLBAR STYLING INTERFACES --- */
+.pml-categories-scroll-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.pml-categories-scroll-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.pml-categories-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 10px;
+}
+
+.pml-categories-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* ==========================================================================
+   5. PRODUCT MENU SHOWCASE LAYOUT (MOBILE FIRST)
+   ========================================================================== */
+
+.pml-menu-section {
+  width: 100%;
+  background-color: #f4f5f7;
+  padding: 60px 0;
+}
+
+.pml-menu-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.pml-menu-main-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1a222d;
+  margin-bottom: 30px;
+}
+
+.pml-menu-category-group {
+  margin-bottom: 50px;
+}
+
+.pml-menu-category-group.pml-hidden-group {
+  display: none;
+}
+
+/* --- SECTION HEADER SEPARATORS --- */
+.pml-category-banner {
+  width: 100%;
+  background-color: #1a222d;
+  color: #ffffff;
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 8px;
+  margin-bottom: 25px;
+}
+
+/* --- MAIN INTERFACE GRID MATRIX --- */
+.pml-products-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+/* --- SYSTEM ITEM PRODUCT DISPLAY LAYOUTS --- */
+.pml-product-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  min-height: 185px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.pml-product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.pml-product-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 6px;
+}
+
+.pml-product-description {
+  font-size: 12.5px;
+  color: #718096;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+/* --- CARD INTERACTIONS LAYER BASE --- */
+.pml-product-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed #edf2f7;
+  padding-top: 12px;
+}
+
+.pml-product-price {
+  font-size: 15px;
+  font-weight: 800;
+  color: #a81c1c;
+}
+
+.pml-btn-add-cart {
+  background: none;
+  border: none;
+  color: #a81c1c;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.pml-btn-add-cart span {
+  font-size: 18px;
+}
+
+.pml-btn-add-cart:hover {
+  color: #871414;
+}
+
+/* ==========================================================================
+   6. MAIN APPLICATION FOOTER LAYOUT
+   ========================================================================== */
+
+.pml-milano-footer {
+  background-color: #222b31;
+  color: #ffffff;
+  padding: 70px 20px 40px 20px;
+  font-family: "Arial", sans-serif;
+  font-size: 16px;
+}
+
+.pml-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* --- BRANDING SUMMARY SUB-SECTION --- */
+.pml-footer-top-brand {
+  text-align: center;
+  margin-bottom: 55px;
+}
+
+.pml-milano-logo-badge {
+  background-color: #ffffff;
+  color: #222b31;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 50px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pml-milano-logo-badge .pml-logo-main {
+  font-size: 46px;
+  font-weight: 900;
+  font-family: "Georgia", serif;
+  line-height: 1;
+}
+
+.pml-milano-logo-badge .pml-logo-sub {
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 5px;
+  color: #a61c1c;
+  margin-top: 6px;
+}
+
+.pml-footer-intro {
+  max-width: 750px;
+  margin: 0 auto;
+  color: #aea5a4;
+  font-weight: bold;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* --- GRID CONFIGURATION FOR DISPATCH DETAILS --- */
+.pml-footer-columns-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 35px;
+  margin-bottom: 50px;
+  align-items: start;
+}
+
+.pml-footer-col h4 {
+  color: #d33722;
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 22px;
+  text-transform: none;
+}
+
+/* --- COLUMN CONFIGURATION 1: DIRECT CONTACT INFORMATION --- */
+.pml-contact-list {
+  list-style: none;
+  padding: 0;
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+.pml-contact-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: #ffffff;
+  line-height: 1.5;
 }
 
-code {
+.pml-contact-icon {
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+/* --- COLUMN CONFIGURATION 2: TRADING OPERATIONAL CALENDAR --- */
+.pml-hours-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pml-hours-table td {
+  padding: 8px 0;
+  vertical-align: top;
+  color: #ffffff;
+}
+
+.pml-hours-table td:last-child {
+  text-align: right;
+  color: #ffffff;
+  padding-left: 15px;
+}
+
+/* --- COLUMN CONFIGURATION 3: INTEGRATIONS & PLUGINS --- */
+.pml-fb-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #2b363f;
+  color: #ffffff;
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: 6px;
+  border: 1px solid #3d4a56;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.pml-fb-button:hover {
+  background-color: #384652;
+}
+
+/* --- COLUMN CONFIGURATION 4: METRIC NAVIGATION ANCHORS --- */
+.pml-links-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pml-links-list a {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.pml-links-list a:hover {
+  text-decoration: underline;
+}
+
+/* --- MARGIN SETTINGS & INTELLECTUAL PROPERTY RELEASES --- */
+.pml-footer-divider {
+  border: 0;
+  border-top: 1px solid #2f3b45;
+  margin-bottom: 30px;
+}
+
+.pml-footer-copyright {
+  text-align: center;
+  color: #72818d;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ==========================================================================
+   7. GEOLOCATION POSTAL CODE VERIFICATION OVERLAY CARD
+   ========================================================================== */
+
+.pml-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+}
+
+.pml-modal-overlay.pml-hidden {
+  display: none;
+}
+
+.pml-modal-content-card {
+  background-color: #ffffff;
+  width: 90%;
+  max-width: 540px;
+  padding: 40px 35px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  font-family: "Arial", sans-serif;
+  box-sizing: border-box;
+}
+
+.pml-modal-logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 35px;
+}
+
+.pml-modal-logo-area .pml-logo-main {
+  font-size: 54px;
+  font-weight: 900;
+  font-family: "Georgia", serif;
+  color: #222b31;
+  line-height: 1;
+}
+
+.pml-modal-logo-area .pml-logo-sub {
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 5px;
+  color: #8a1c1c;
+  margin-top: 5px;
+}
+
+.pml-modal-main-title {
+  font-size: 26px;
+  font-weight: bold;
+  color: #0b1a30;
+  margin-bottom: 15px;
+  line-height: 1.3;
+}
+
+.pml-modal-sub-text {
+  font-size: 14.5px;
+  color: #4a5568;
+  line-height: 1.5;
+  margin-bottom: 30px;
+  padding: 0 10px;
+}
+
+.pml-modal-input-container {
+  margin-bottom: 35px;
+}
+
+#plz-input {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #222b31;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  outline: none;
+}
+
+#plz-input::placeholder {
+  color: #94a3b8;
+}
+
+#plz-input:focus {
+  border-color: #8a1c1c;
+}
+
+.pml-btn-modal-save {
+  background-color: #8a1c1c;
+  color: #ffffff;
+  border: none;
+  padding: 14px 45px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: inline-block;
+  min-width: 150px;
+  width: 100%;
+}
+
+.pml-btn-modal-save:hover {
+  background-color: #6f1414;
+}
+
+.pml-plz-error-msg {
+  color: #bc4747;
+  font-size: 17px;
+  margin-top: 2px;
+  margin-bottom: 10px;
+  text-align: center;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.pml-plz-error-msg.pml-hidden {
+  display: none;
+}
+
+/* ==========================================================================
+   8. SHOPPING CART CONTEXT DESIGN DRAWER PANELS
+   ========================================================================== */
+
+.pml-cart-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 25000;
+}
+
+.pml-cart-overlay.pml-hidden {
+  display: none;
+}
+
+.pml-cart-drawer {
+  background-color: #f4f6f8;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
+  font-family: "Arial", sans-serif;
+  box-sizing: border-box;
+}
+
+/* --- HEADER PANELS --- */
+.pml-cart-header {
+  background-color: #222b31;
+  color: #ffffff;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pml-cart-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.pml-close-cart-btn {
+  font-size: 28px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.pml-close-cart-btn:hover {
+  opacity: 0.7;
+}
+
+/* --- DRAWER INTERNALS & BLANK STATES --- */
+.pml-cart-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pml-cart-empty-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 180px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.pml-empty-msg-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+}
+
+.pml-empty-msg-container p {
+  color: #718096;
+  font-size: 18px;
+  margin: 0;
+}
+
+/* --- DYNAMIC RUNTIME ELEMENTS INJECTION NODE --- */
+.pml-cart-items-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* --- BOTTOM PLACEMENT INTERACTIONS CONTROLS --- */
+.pml-cart-action-area {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.pml-btn-address-submit {
+  background-color: #bc4747;
+  color: #ffffff;
+  border: none;
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.pml-btn-address-submit:hover {
+  background-color: #a53b3b;
+}
+
+.pml-btn-address-submit.pml-disabled,
+.pml-btn-address-submit:disabled {
+  background-color: #c58585;
+  color: #ffffff;
+  font-weight: normal;
+  cursor: not-allowed;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* --- FINANCIAL SUMMARIES LEDGER PANEL --- */
+.pml-cart-footer {
+  background-color: #222b31;
+  padding: 20px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.pml-min-order-warning {
+  background-color: #fff5f5;
+  color: #bc4747;
+  border: 1px solid #fed7d7;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.pml-price-summary-row {
+  display: flex;
+  justify-content: space-between;
   font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  margin-bottom: 8px;
+}
+
+.pml-discount-row {
+  color: #2f9e67;
+}
+
+.pml-total-row {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #3d4a56;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.pml-total-price-badge {
+  font-size: 20px;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   9. INJECTED ITEM CARD DECORATIONS (SHOPPING CART EXTENSIONS)
+   ========================================================================== */
+
+.pml-cart-item-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.pml-cart-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.pml-item-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #000000;
+}
+
+.pml-item-delete {
+  font-size: 20px;
+  color: #a0aec0;
+  cursor: pointer;
+}
+
+.pml-cart-item-details {
+  margin-top: 5px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pml-item-extra-line {
+  color: #2f9e67;
+}
+
+.pml-item-remove-line {
+  color: #bc4747;
+}
+
+.pml-item-note-line {
+  color: #64748b;
+  font-style: italic;
+  margin-top: 3px;
+}
+
+.pml-cart-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pml-quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.pml-qty-input {
+  width: 50px;
+  padding: 5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.pml-item-price {
+  font-size: 18px;
+  font-weight: bold;
+  color: #8a1c1c;
+}
+
+/* ==========================================================================
+   10. DYNAMIC MODAL BOX CONFIGURATION SYSTEM FOR RECIPIENT RECIPES
+   ========================================================================== */
+
+.pml-product-modal-card {
+  background-color: #ffffff;
+  width: 90%;
+  max-width: 580px;
+  max-height: 90vh;
+  border-radius: 12px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  font-family: "Arial", sans-serif;
+  box-sizing: border-box;
+}
+
+.pml-close-product-modal {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 32px;
+  color: #000000;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 10;
+}
+
+.pml-product-modal-header {
+  padding: 30px 30px 15px 30px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+}
+
+.pml-product-modal-header h2 {
+  font-size: 26px;
+  color: #222b31;
+  margin: 0 0 5px 0;
+  font-weight: bold;
+}
+
+.pml-product-modal-header p {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+}
+
+.pml-product-modal-body {
+  padding: 20px 30px;
+  overflow-y: auto;
+  flex: 1;
+  text-align: left;
+}
+
+.pml-options-section {
+  margin-bottom: 25px;
+}
+
+.pml-options-section h3 {
+  font-size: 16px;
+  font-weight: bold;
+  color: #000000;
+  margin: 0 0 15px 0;
+}
+
+.pml-price-note {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: normal;
+}
+
+.pml-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pml-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: #000000;
+  cursor: pointer;
+}
+
+.pml-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #8a1c1c;
+}
+
+#modal-product-notes {
+  width: 100%;
+  height: 80px;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+#modal-product-notes:focus {
+  border-color: #8a1c1c;
+}
+
+.pml-product-modal-footer {
+  padding: 20px 30px 30px 30px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  text-align: left;
+}
+
+.pml-modal-price-display {
+  font-size: 22px;
+  font-weight: bold;
+  color: #8a1c1c;
+}
+
+.pml-modal-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pml-btn-modal-abort {
+  width: 100%;
+  margin: 0;
+  background-color: #ffffff;
+  color: #222b31;
+  border: 1px solid #cbd5e1;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.2s;
+}
+
+.pml-btn-modal-abort:hover {
+  background-color: #f8fafc;
+}
+
+.pml-btn-modal-confirm {
+  width: 100%;
+  margin: 0;
+  background-color: #8a1c1c;
+  color: #ffffff;
+  border: none;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s;
+}
+
+.pml-btn-modal-confirm:hover {
+  background-color: #6f1414;
+}
+
+/* ==========================================================================
+   11. LEGAL IMPRESSUM OVERLAY BOXES
+   ========================================================================== */
+
+.pml-impressum-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.pml-impressum-overlay:not(.pml-hidden) {
+  display: flex;
+}
+
+.pml-impressum-modal-box {
+  background-color: #ffffff;
+  width: 90%;
+  max-width: 800px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.pml-impressum-modal-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pml-impressum-modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pml-close-impressum-btn {
+  font-size: 30px;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+}
+.pml-close-impressum-btn:hover {
+  color: #000000;
+}
+
+.pml-impressum-modal-body {
+  padding: 25px;
+  overflow-y: auto;
+}
+
+.pml-impressum-block {
+  margin-bottom: 20px;
+}
+.pml-impressum-block h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 4px;
+  color: #000000;
+}
+.pml-impressum-block p {
+  margin: 0 0 2px 0;
+}
+.pml-impressum-text {
+  font-size: 13.5px;
+  color: #334155;
+  margin: 0;
+  text-align: justify;
+}
+.pml-impressum-link {
+  color: #bc4747;
+  text-decoration: none;
+}
+.pml-impressum-link:hover {
+  text-decoration: underline;
+}
+
+.pml-impressum-modal-footer-brand {
+  text-align: center;
+  margin-top: 40px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 30px;
+}
+.pml-impressum-logo-box {
+  display: inline-block;
+  background-color: #ffffff;
+  padding: 8px 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+.pml-impressum-logo-main {
+  font-family: "Arial Black", sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #000000;
+}
+.pml-impressum-logo-sub {
+  font-size: 10px;
+  font-weight: bold;
+  color: #8a1c1c;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: -4px;
+}
+.pml-impressum-slogan {
+  font-size: 12.5px;
+  color: #64748b;
+  max-width: 450px;
+  margin: 0 auto;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   12. ASYNCHRONOUS CHECKOUT ROADMAP WIZARD ANIMATION HANDLERS
+   ========================================================================== */
+
+#cart-view-step.pml-hidden-step,
+#address-view-step.pml-hidden-step {
+  display: none;
+}
+
+/* --- SHIPPING ADDRESSES FORM DATA ENTRY BOUNDS --- */
+.pml-address-form-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.pml-form-section-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #000000;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.pml-form-group {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pml-form-group label {
+  font-size: 13px;
+  color: #4a5568;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pml-form-group input,
+.pml-form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background-color: #ffffff;
+  outline: none;
+  font-family: inherit;
+}
+
+.pml-form-group textarea {
+  height: 70px;
+  resize: none;
+}
+
+.pml-form-group.pml-has-error input {
+  border-color: #e53e3e;
+}
+
+.pml-form-error-msg {
+  color: #d32f2f;
+  font-size: 11px;
+  margin-top: 8px;
+  text-align: left;
+  display: none;
+}
+
+.pml-form-error-msg:not(.pml-hidden) {
+  display: block;
+}
+
+.pml-input-error {
+  border: 1px solid #d32f2f;
+  background-color: #ffebee;
+}
+
+.pml-form-error-msg.pml-hidden {
+  display: none;
+}
+
+/* --- INTERACTIVE ACTION BUTTON LAYOUTS FOR SHIPPING PROTOCOLS --- */
+.pml-address-action-buttons {
+  display: flex;
+  margin-top: 25px;
+  margin-bottom: 15px;
+  width: 100%;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pml-btn-address-back {
+  flex: 1;
+  background-color: #e2e8f0;
+  color: #1a222d;
+  border: none;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+}
+
+.pml-btn-address-back:hover {
+  background-color: #cbd5e0;
+}
+
+#btn-to-payment {
+  flex: 1.3;
+}
+
+#cart-view-step.pml-hidden-step,
+#address-view-step.pml-hidden-step {
+  display: none;
+}
+
+#cart-view-step,
+#address-view-step {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#address-view-step .pml-cart-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.pml-btn-address-submit,
+.pml-btn-modal-save {
+  width: 100%;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   13. MASTER MEDIA BREAKPOINT LAYER SCALING ARCHITECTURE (MOBILE FIRST UPGRADE)
+   ========================================================================== */
+
+/* --- TABLETS & DESKTOPS SCALING LAYOUT RULES (min-width: 481px) --- */
+@media (min-width: 481px) {
+  .pml-checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .pml-modal-action-buttons {
+    flex-direction: row;
+  }
+
+  .pml-btn-modal-abort,
+  .pml-btn-modal-confirm {
+    width: auto;
+  }
+}
+
+/* --- LARGE MONITORS ARCHITECTURAL OVERRIDES (Unified 768px Breakpoint) --- */
+@media (min-width: 768px) {
+  /* --- Navigation & Delivery Area --- */
+  .pml-delivery-area {
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .pml-delivery-text {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+
+  .pml-change-link {
+    margin-left: 5px;
+  }
+
+  /* --- Hero Section & Components --- */
+  .pml-hero-section {
+    min-height: clamp(700px, 92vh, 940px);
+    padding: 72px 0;
+  }
+
+  .pml-hero-container,
+  .pml-search-container,
+  .pml-menu-container,
+  .pml-footer-inner {
+    max-width: 1320px;
+    padding-inline: 32px;
+  }
+
+  .pml-hero-title {
+    font-size: clamp(46px, 5vw, 72px);
+  }
+
+  .pml-hero-description {
+    font-size: 18px;
+    max-width: 700px;
+  }
+
+  .pml-hero-bottom-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 40px;
+  }
+
+  .pml-hero-features,
+  .pml-features-container {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 35px;
+    margin-top: 0;
+  }
+
+  /* --- Search & Grid Systems --- */
+  .pml-search-title {
+    font-size: 28px;
+  }
+
+  .pml-menu-main-title {
+    font-size: 34px;
+    margin-bottom: 36px;
+  }
+
+  .pml-category-banner {
+    font-size: 17px;
+    padding: 16px 22px;
+  }
+
+  .pml-products-grid,
+  .pml-menu-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    padding: 0;
+  }
+
+  /* --- Cart Drawer & Forms --- */
+  .pml-cart-drawer {
+    max-width: 480px;
+  }
+
+  .pml-btn-address-submit,
+  .pml-btn-modal-save,
+  .pml-address-action-buttons {
+    width: auto;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .pml-btn-address-back {
+    width: auto;
+    order: 0;
+  }
+
+  /* --- Modals & Overlays --- */
+  .pml-modal-content-card,
+  .pml-product-modal-card,
+  .pml-impressum-modal-box {
+    width: 90%;
+    max-width: 95%;
+    margin: 0 auto;
+    padding: 40px 35px;
+  }
 }

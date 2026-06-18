@@ -1,11 +1,19 @@
-import { CartProvider } from './context/CartContext';
+
 import { Menu } from './components/Menu';
+import { Footer } from './components/Footer';
+import { CartProvider } from './context/CartContext';
 
 function App() {
   return (
     <CartProvider>
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="pml-app-wrapper">
+        {/* Hier kommt später die Navbar hin */}
+        
+        {/* Unsere Speisekarte */}
         <Menu />
+
+        {/* Der neu erstellte Footer */}
+        <Footer />
       </div>
     </CartProvider>
   );
