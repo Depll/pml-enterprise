@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
+import { ZutatenModal } from './ZutatenModal';
 
 interface MenuProps {
   activeCategory: string;
   searchTerm: string;
 }
 
-// Interfaces exakt angepasst an deine NestJS-Struktur ("getSpeisekarte")
 interface Zutat {
   id: number;
   name: string;
@@ -24,8 +24,8 @@ interface Product {
 
 interface KategorieData {
   id: number;
-  name: string; // z.B. "pizza"
-  label: string; // z.B. "Pizza"
+  name: string;
+  label: string;
   produkte: Product[];
 }
 
@@ -36,11 +36,13 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
   useEffect(() => {
     const fetchMenu = async () => {
       try {
         setIsLoading(true);
-        // Prüfe hier, ob dein MenuController auf '/menu' oder '/api/menu' hört!
         const response = await fetch('http://localhost:3000/menu'); 
         
         if (!response.ok) {
@@ -60,6 +62,28 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
 
     fetchMenu();
   }, []);
+
+  const handleOpenModal = (product: Product) => {
+    setSelectedProduct(product);
+    setIsModalOpen(true);
+  };
+
+  // GEÄNDERT: Nimmt jetzt alle 4 Parameter aus dem angepassten ZutatenModal entgegen
+  const handleConfirmExtras = (
+    baseProduct: { id: number; name: string; preis: number }, 
+    selectedExtras: Zutat[],
+    removedZutaten: Array<{ id: number; name: string }>,
+    anmerkung: string
+  ) => {
+    const formattedExtras = selectedExtras.map(z => ({
+      id: z.id,
+      name: z.name,
+      preis: Number(z.aufpreis)
+    }));
+    
+    // Alle Werte direkt an den Context weiterreichen
+    addToCart(baseProduct, formattedExtras, removedZutaten, anmerkung);
+  };
 
   if (isLoading) {
     return (
@@ -87,12 +111,10 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
         <h2 className="pml-menu-main-title">Unsere Speisekarte</h2>
 
         {categoriesData.map((cat) => {
-          // 1. Filter nach aktiver Kategorie im Frontend-Tab
           if (activeCategory !== 'alle' && cat.name.toLowerCase() !== activeCategory.toLowerCase()) {
             return null;
           }
 
-          // 2. Filter nach Suchbegriff innerhalb der Produkte dieser Kategorie
           let filteredProducts = cat.produkte || [];
           if (searchTerm.trim() !== '') {
             filteredProducts = filteredProducts.filter(p => 
@@ -101,12 +123,10 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
             );
           }
 
-          // Wenn durch die Suche keine Produkte in dieser Kategorie übrig bleiben, blenden wir sie aus
           if (filteredProducts.length === 0) return null;
 
           return (
             <div key={cat.id} className="pml-menu-category-group">
-              {/* Nutzen das 'label' für die schöne Anzeige (z.B. "PIZZA") */}
               <div className="pml-category-banner">
                 {(cat.label || cat.name).toUpperCase()}
               </div>
@@ -125,11 +145,7 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
                       </span>
                       <button 
                         className="pml-btn-add-cart"
-                        onClick={() => addToCart({
-                          id: product.id,
-                          name: product.name,
-                          preis: Number(product.preis)
-                        })}
+                        onClick={() => handleOpenModal(product)}
                       >
                         <span>+</span> In den Warenkorb
                       </button>
@@ -141,6 +157,13 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
           );
         })}
       </div>
+
+      <ZutatenModal 
+        isOpen={isModalOpen}
+        product={selectedProduct}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmExtras}
+      />
     </section>
   );
 };

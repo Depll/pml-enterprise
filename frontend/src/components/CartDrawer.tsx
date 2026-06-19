@@ -8,7 +8,6 @@ interface CartDrawerProps {
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenCheckout }) => {
-  // 1. NEU: updateMenge und die fertige totalPrice aus dem Context ziehen
   const { cart, removeFromCart, updateMenge, totalPrice } = useCart();
 
   if (!isOpen) return null;
@@ -33,24 +32,41 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
             </div>
           ) : (
             <div className="pml-cart-items-wrapper">
-              {cart.map((item) => {
+              {cart.map((item, index) => {
+                // Da ID bei identischen Produkten gleich sein kann, nutzen wir hier am besten eine Kombi oder den Index als Key
+                const itemKey = `${item.id}-${index}`;
+
                 return (
-                  <div key={item.id} className="pml-cart-item-card">
+                  <div key={itemKey} className="pml-cart-item-card">
                     <div className="pml-cart-item-header">
                       <div>
                         <span className="pml-item-title">{item.name}</span>
-                        {/* Optionale Zutaten unter dem Namen anzeigen */}
+                        
+                        {/* 1. GEWÄHLTE EXTRAS */}
                         {item.gewaehlteZutaten && item.gewaehlteZutaten.length > 0 && (
-                          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                          <div style={{ fontSize: '12px', color: '#319795', marginTop: '4px' }}>
                             + {item.gewaehlteZutaten.map(z => z.name).join(', ')}
+                          </div>
+                        )}
+
+                        {/* 2. NEU: ENTFERNTE ZUTATEN */}
+                        {item.entfernteZutaten && item.entfernteZutaten.length > 0 && (
+                          <div style={{ fontSize: '12px', color: '#e53e3e', marginTop: '2px', textDecoration: 'line-through' }}>
+                            ohne {item.entfernteZutaten.map(z => z.name).join(', ')}
+                          </div>
+                        )}
+
+                        {/* 3. NEU: ANMERKUNG FÜR DIE KÜCHE */}
+                        {item.anmerkung && item.anmerkung.trim() !== '' && (
+                          <div style={{ fontSize: '12px', color: '#718096', marginTop: '6px', fontStyle: 'italic', backgroundColor: '#f7fafc', padding: '4px 8px', borderRadius: '4px', borderLeft: '2px solid #cbd5e0' }}>
+                            📝 "{item.anmerkung}"
                           </div>
                         )}
                       </div>
                       <span className="pml-item-delete" onClick={() => removeFromCart(item.id)}>🗑️</span>
                     </div>
                     
-                    <div className="pml-cart-item-footer" style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', marginTop: '10px' }}>
-                      {/* 2. GEÄNDERT: Plus-/Minus-Tasten zur Mengensteuerung */}
+                    <div className="pml-cart-item-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
                       <div className="pml-quantity-control" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button 
                           onClick={() => updateMenge(item.id, -1)}
@@ -83,7 +99,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
           <div className="pml-price-summary-row pml-total-row">
             <span>Gesamtsumme:</span>
             <span className="pml-total-price-badge">
-              {/* 3. GEÄNDERT: Nutzt jetzt den berechneten Gesamtpreis aus dem Context */}
               {totalPrice.toFixed(2).replace('.', ',')} €
             </span>
           </div>

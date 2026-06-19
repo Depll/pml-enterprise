@@ -1,18 +1,25 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Erweitert: Jedes Item im Warenkorb kann nun gewählte Extras enthalten
+// Erweitert: Jedes Item im Warenkorb speichert nun Extras, gelöschte Zutaten und die Küchen-Anmerkung
 export interface CartItem {
   id: number;
   name: string;
   preis: number;
   menge: number;
-  gewaehlteZutaten?: Array<{ id: number; name: string; preis: number }>; // NEU für das Modal
+  gewaehlteZutaten?: Array<{ id: number; name: string; preis: number }>;
+  entfernteZutaten?: Array<{ id: number; name: string }>; // NEU
+  anmerkung?: string; // NEU
 }
 
 interface CartContextType {
   cart: CartItem[];
-  // Aktualisiert: Erlaubt jetzt das Mitgeben von gewählten Zutaten und berechnet den Preis flexibel
-  addToCart: (produkt: { id: number; name: string; preis: number }, extras?: Array<{ id: number; name: string; preis: number }>) => void;
+  // Aktualisiert: Nimmt jetzt auch entfernte Zutaten und Anmerkungstexte entgegen
+  addToCart: (
+    produkt: { id: number; name: string; preis: number }, 
+    extras?: Array<{ id: number; name: string; preis: number }>,
+    entfernte?: Array<{ id: number; name: string }>,
+    anmerkung?: string
+  ) => void;
   removeFromCart: (id: number) => void;
   updateMenge: (id: number, delta: number) => void;
   clearCart: () => void;
@@ -41,22 +48,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('pml_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Verbessert: Berücksichtigt jetzt ausgewählte Zutaten beim Hinzufügen!
+  // Verbessert: Prüft jetzt die exakte Kombination aus Extras, weggelassenen Zutaten UND der Anmerkung
   const addToCart = (
     produkt: { id: number; name: string; preis: number }, 
-    extras: Array<{ id: number; name: string; preis: number }> = []
+    extras: Array<{ id: number; name: string; preis: number }> = [],
+    entfernte: Array<{ id: number; name: string }> = [],
+    anmerkung: string = ''
   ) => {
     setCart((prev) => {
-      // Wir prüfen, ob das exakt gleiche Produkt mit den exakt gleichen Extras schon existiert
+      // Wir prüfen, ob genau DIESE Pizzakonfiguration schon so im Warenkorb liegt
       const existiert = prev.find(
         (item) => 
           item.id === produkt.id && 
-          JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras)
+          JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras) &&
+          JSON.stringify(item.entfernteZutaten || []) === JSON.stringify(entfernte) &&
+          (item.anmerkung || '') === anmerkung
       );
 
       if (existiert) {
         return prev.map((item) =>
-          item.id === produkt.id && JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras)
+          item.id === produkt.id && 
+          JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras) &&
+          JSON.stringify(item.entfernteZutaten || []) === JSON.stringify(entfernte) &&
+          (item.anmerkung || '') === anmerkung
             ? { ...item, menge: item.menge + 1 }
             : item
         );
@@ -71,7 +85,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: produkt.name, 
         preis: endPreis, 
         menge: 1, 
-        gewaehlteZutaten: extras 
+        gewaehlteZutaten: extras,
+        entfernteZutaten: entfernte,
+        anmerkung: anmerkung
       }];
     });
   };
