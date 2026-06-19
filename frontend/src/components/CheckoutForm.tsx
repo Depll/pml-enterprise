@@ -5,9 +5,10 @@ interface CheckoutFormProps {
   onClose: () => void;
   totalPrice: number;
   cartItems: any[];
+  currentPlz: string
 }
 
-export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose, totalPrice, cartItems }) => {
+export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose,currentPlz, totalPrice, cartItems }) => {
   const [formData, setFormData] = useState({
     name: '',
     strasse: '',
@@ -114,15 +115,20 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose, tot
                 <label>PLZ *</label>
                 <input 
                   type="text" 
-                  className={`pml-form-input ${errors.plz ? 'pml-input-error' : ''}`}
-                  value={formData.plz}
-                  onChange={(e) => setFormData({...formData, plz: e.target.value})}
+                  className="pml-form-input"
+                  value={currentPlz} // <-- Nutzt jetzt die verifizierte PLZ aus der App.tsx
+                  disabled // <-- Verhindert, dass der User die PLZ hier manipulieren kann
                 />
-                {errors.plz && <span className="pml-error-text">{errors.plz}</span>}
               </div>
+              
               <div className="pml-form-group" style={{ flex: 2 }}>
                 <label>Stadt</label>
-                <input type="text" className="pml-form-input" value={formData.stadt} disabled />
+                <input 
+                  type="text" 
+                  className="pml-form-input" 
+                  value="Leverkusen" // <-- Fest auf Leverkusen setzen
+                  disabled 
+                />
               </div>
             </div>
 

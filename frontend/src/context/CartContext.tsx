@@ -1,15 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// Erweitert: Jedes Item im Warenkorb kann nun gewählte Extras enthalten
 export interface CartItem {
   id: number;
   name: string;
   preis: number;
   menge: number;
+  gewaehlteZutaten?: Array<{ id: number; name: string; preis: number }>; // NEU für das Modal
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (produkt: { id: number; name: string; preis: unknown }) => void;
+  // Aktualisiert: Erlaubt jetzt das Mitgeben von gewählten Zutaten und berechnet den Preis flexibel
+  addToCart: (produkt: { id: number; name: string; preis: number }, extras?: Array<{ id: number; name: string; preis: number }>) => void;
   removeFromCart: (id: number) => void;
   updateMenge: (id: number, delta: number) => void;
   clearCart: () => void;
@@ -38,15 +41,38 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('pml_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = (produkt: { id: number; name: string; preis: unknown }) => {
+  // Verbessert: Berücksichtigt jetzt ausgewählte Zutaten beim Hinzufügen!
+  const addToCart = (
+    produkt: { id: number; name: string; preis: number }, 
+    extras: Array<{ id: number; name: string; preis: number }> = []
+  ) => {
     setCart((prev) => {
-      const existiert = prev.find((item) => item.id === produkt.id);
+      // Wir prüfen, ob das exakt gleiche Produkt mit den exakt gleichen Extras schon existiert
+      const existiert = prev.find(
+        (item) => 
+          item.id === produkt.id && 
+          JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras)
+      );
+
       if (existiert) {
         return prev.map((item) =>
-          item.id === produkt.id ? { ...item, menge: item.menge + 1 } : item
+          item.id === produkt.id && JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras)
+            ? { ...item, menge: item.menge + 1 }
+            : item
         );
       }
-      return [...prev, { id: produkt.id, name: produkt.name, preis: Number(produkt.preis), menge: 1 }];
+
+      // Berechne den Basispreis + die Preise aller ausgewählten Extras
+      const aufpreisExtras = extras.reduce((sum, ext) => sum + ext.preis, 0);
+      const endPreis = produkt.preis + aufpreisExtras;
+
+      return [...prev, { 
+        id: produkt.id, 
+        name: produkt.name, 
+        preis: endPreis, 
+        menge: 1, 
+        gewaehlteZutaten: extras 
+      }];
     });
   };
 

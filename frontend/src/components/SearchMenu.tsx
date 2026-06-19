@@ -1,19 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-// Wir definieren Props, um die echten Kategorien aus der App zu übergeben
+// Interface angepasst: categories wurde hier heraugelöscht
 interface SearchMenuProps {
-  categories: string[];
   activeCategory: string;
   onCategoryChange: (category: string) => void;
   onSearchChange: (searchTerm: string) => void;
 }
 
+interface BackendKategorie {
+  id: number;
+  name: string; // z.B. "pizza"
+  label: string; // z.B. "Pizza"
+}
+
 export const SearchMenu: React.FC<SearchMenuProps> = ({ 
-  categories, 
   activeCategory, 
   onCategoryChange,
   onSearchChange 
 }) => {
+  const [dynamicCategories, setDynamicCategories] = useState<BackendKategorie[]>([]);
+
+  // Hol die echten Kategorien live aus deinem NestJS-Backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/menu'); 
+        if (response.ok) {
+          const data = await response.json();
+          // Wir holen uns ID, Name und Label aus den geladenen Kategorien
+          const kats = data.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            label: item.label,
+          }));
+          setDynamicCategories(kats);
+        }
+      } catch (err) {
+        console.error('Fehler beim Laden der Filter-Kategorien:', err);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
   return (
     <section className="pml-search-section">
       <div className="pml-search-container">
@@ -30,7 +59,7 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
           />
         </div>
 
-        {/* Dynamische Kategorieliste aus deinen echten Daten */}
+        {/* Dynamische Kategorieliste direkt aus den Backend-Daten */}
         <div className="pml-categories-scroll-wrapper">
           <div className="pml-categories-list">
             <span 
@@ -40,13 +69,13 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
               🍽️ Alles anzeigen
             </span>
             
-            {categories.map((cat) => (
+            {dynamicCategories.map((cat) => (
               <span 
-                key={cat}
-                className={`pml-category-item ${activeCategory === cat ? 'pml-active' : ''}`}
-                onClick={() => onCategoryChange(cat)}
+                key={cat.id}
+                className={`pml-category-item ${activeCategory.toLowerCase() === cat.name.toLowerCase() ? 'pml-active' : ''}`}
+                onClick={() => onCategoryChange(cat.name)}
               >
-                {cat}
+                {cat.label}
               </span>
             ))}
           </div>

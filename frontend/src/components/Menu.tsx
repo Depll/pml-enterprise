@@ -1,65 +1,122 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 
-// Hier definieren wir, dass das Menü die Filter-Werte empfängt
 interface MenuProps {
   activeCategory: string;
   searchTerm: string;
 }
 
+// Interfaces exakt angepasst an deine NestJS-Struktur ("getSpeisekarte")
+interface Zutat {
+  id: number;
+  name: string;
+  aufpreis: string | number;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  beschreibung: string;
+  preis: string | number;
+  aktiv: boolean;
+  zutaten: Zutat[];
+}
+
+interface KategorieData {
+  id: number;
+  name: string; // z.B. "pizza"
+  label: string; // z.B. "Pizza"
+  produkte: Product[];
+}
+
 export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
-  const context = useCart();
-  const addToCart = context?.addToCart;
+  const { addToCart } = useCart();
+  
+  const [categoriesData, setCategoriesData] = useState<KategorieData[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Deine echten Produkte aus der Speisekarte (Beispiel-Struktur, passe die Daten gerne an!)
-  const allProducts = [
-    { id: 1, name: 'Pizza Margherita', kategorie: 'Pizza', preis: '7.50', description: 'Mit fruchtiger Tomatensauce und feinstem Mozzarella.' },
-    { id: 2, name: 'Pizza Salami', kategorie: 'Pizza', preis: '8.50', description: 'Mit herzhafter Salami und Mozzarella.' },
-    { id: 3, name: 'Pasta Bologna', kategorie: 'Pasta', preis: '9.00', description: 'Mit klassischer Hackfleischsauce vom Rind.' },
-    { id: 4, name: 'Insalata Mista', kategorie: 'Salate', preis: '6.50', description: 'Gemischter Salat mit hauseigenem Dressing.' },
-    { id: 5, name: 'Chicken Tikka Masala', kategorie: 'Indisch', preis: '14.50', description: 'Zartes Hähnchenbrustfilet in traditioneller Gewürzsauce.' },
-    { id: 6, name: 'Coca-Cola 1,0l', kategorie: 'Getränke', preis: '3.50', description: 'Erfrischend und eiskalt.' }
-  ];
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        setIsLoading(true);
+        // Prüfe hier, ob dein MenuController auf '/menu' oder '/api/menu' hört!
+        const response = await fetch('http://localhost:3000/menu'); 
+        
+        if (!response.ok) {
+          throw new Error('Fehler beim Laden der Speisekarte');
+        }
+        
+        const data = await response.json();
+        setCategoriesData(data);
+        setError(null);
+      } catch (err: any) {
+        console.error(err);
+        setError('Die Speisekarte konnte nicht geladen werden.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // 1. Filter nach Kategorie
-  let filteredProducts = allProducts;
-  if (activeCategory !== 'alle') {
-    filteredProducts = filteredProducts.filter(p => p.kategorie === activeCategory);
-  }
+    fetchMenu();
+  }, []);
 
-  // 2. Filter nach Suchbegriff
-  if (searchTerm.trim() !== '') {
-    filteredProducts = filteredProducts.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.description.toLowerCase().includes(searchTerm.toLowerCase())
+  if (isLoading) {
+    return (
+      <section className="pml-menu-section">
+        <p style={{ textAlign: 'center', color: '#718096', padding: '40px' }}>
+          Speisekarte wird geladen... 🍕
+        </p>
+      </section>
     );
   }
 
-  // Gruppierung nach Kategorien für die Banner-Anzeige (.pml-category-banner)
-  const uniqueCategoriesInFiltered = Array.from(new Set(filteredProducts.map(p => p.kategorie)));
+  if (error) {
+    return (
+      <section className="pml-menu-section">
+        <p style={{ textAlign: 'center', color: '#e53e3e', padding: '40px' }}>
+          {error}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="pml-menu-section" id="speisekarte">
       <div className="pml-menu-container">
         <h2 className="pml-menu-main-title">Unsere Speisekarte</h2>
 
-        {uniqueCategoriesInFiltered.map(cat => {
-          const productsInCat = filteredProducts.filter(p => p.kategorie === cat);
+        {categoriesData.map((cat) => {
+          // 1. Filter nach aktiver Kategorie im Frontend-Tab
+          if (activeCategory !== 'alle' && cat.name.toLowerCase() !== activeCategory.toLowerCase()) {
+            return null;
+          }
+
+          // 2. Filter nach Suchbegriff innerhalb der Produkte dieser Kategorie
+          let filteredProducts = cat.produkte || [];
+          if (searchTerm.trim() !== '') {
+            filteredProducts = filteredProducts.filter(p => 
+              p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+              (p.beschreibung && p.beschreibung.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+          }
+
+          // Wenn durch die Suche keine Produkte in dieser Kategorie übrig bleiben, blenden wir sie aus
+          if (filteredProducts.length === 0) return null;
 
           return (
-            <div key={cat} className="pml-menu-category-group">
-              {/* Das dunkle Kategorienschild aus deinem CSS */}
+            <div key={cat.id} className="pml-menu-category-group">
+              {/* Nutzen das 'label' für die schöne Anzeige (z.B. "PIZZA") */}
               <div className="pml-category-banner">
-                {cat.toUpperCase()}
+                {(cat.label || cat.name).toUpperCase()}
               </div>
 
-              {/* Die Produkt-Grid-Matrix */}
               <div className="pml-products-grid">
-                {productsInCat.map(product => (
+                {filteredProducts.map((product) => (
                   <div key={product.id} className="pml-product-card">
                     <div>
                       <h3 className="pml-product-title">{product.name}</h3>
-                      <p className="pml-product-description">{product.description}</p>
+                      <p className="pml-product-description">{product.beschreibung}</p>
                     </div>
                     
                     <div className="pml-product-bottom">
@@ -68,14 +125,13 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
                       </span>
                       <button 
                         className="pml-btn-add-cart"
-                        onClick={() => addToCart && (addToCart as any)({
-                        id: product.id,
-                        name: product.name,
-                        preis: product.preis,
-                        quantity: 1
+                        onClick={() => addToCart({
+                          id: product.id,
+                          name: product.name,
+                          preis: Number(product.preis)
                         })}
                       >
-                        <span>+</span> Hinzufügen
+                        <span>+</span> In den Warenkorb
                       </button>
                     </div>
                   </div>
@@ -84,12 +140,6 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
             </div>
           );
         })}
-
-        {filteredProducts.length === 0 && (
-          <p style={{ textAlign: 'center', color: '#718096', marginTop: '20px' }}>
-            Keine Gerichte für deine Auswahl gefunden. 🔍
-          </p>
-        )}
       </div>
     </section>
   );
