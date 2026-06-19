@@ -33,7 +33,6 @@ export class ProduktEntity {
   @JoinColumn({ name: 'kategorie_id' })
   kategorie: KategorieEntity;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @ManyToMany(() => ZutatEntity, (zutat) => zutat.produkte)
   @JoinTable({ name: 'produkt_zutaten' })
   zutaten: ZutatEntity[];

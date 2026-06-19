@@ -6,6 +6,7 @@ import { ProduktEntity } from '../entities/produkt.entity';
 import { ZutatEntity } from '../entities/zutat.entity';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Liefergebiet } from '../entities/liefergebiet.entity';
 
 interface PizzaItem {
   name: string;
@@ -29,24 +30,40 @@ export class SeedService {
     private readonly produktRepository: Repository<ProduktEntity>,
     @InjectRepository(ZutatEntity)
     private readonly zutatRepository: Repository<ZutatEntity>,
+    @InjectRepository(Liefergebiet)
+    private readonly liefergebietRepository: Repository<Liefergebiet>,
   ) {}
 
   async runSeed() {
     console.log('Starte Enterprise-Datenbank-Seeding...');
 
     // 1. JSON-Datei einlesen
-    const filePath = path.join(process.cwd(), 'src', 'database', 'products.json');
+    const filePath = path.join(
+      process.cwd(),
+      'src',
+      'database',
+      'products.json',
+    );
     const rawData = fs.readFileSync(filePath, 'utf-8');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const sourceProducts: PizzaCategoryGroup[] = JSON.parse(rawData);
 
     // 2. Standard-Zutaten vorab anlegen
-    const zutatenNamen = ['Tomatensauce', 'Käse', 'Salami', 'Schinken', 'Pilze', 'Thunfisch', 'Zwiebeln'];
+    const zutatenNamen = [
+      'Tomatensauce',
+      'Käse',
+      'Salami',
+      'Schinken',
+      'Pilze',
+      'Thunfisch',
+      'Zwiebeln',
+    ];
     const zutatenMap = new Map<string, ZutatEntity>();
 
     for (const name of zutatenNamen) {
       let zutat = await this.zutatRepository.findOne({ where: { name } });
       if (!zutat) {
-        zutat = this.zutatRepository.create({ name, aufpreis: 1.00 });
+        zutat = this.zutatRepository.create({ name, aufpreis: 1.0 });
         await this.zutatRepository.save(zutat);
       }
       zutatenMap.set(name, zutat);
@@ -54,7 +71,11 @@ export class SeedService {
 
     // 3. Kategorien und deren verschachtelte Produkte importieren
     for (const kategorialesElement of sourceProducts) {
-      if (!kategorialesElement || !kategorialesElement.category || !kategorialesElement.items) {
+      if (
+        !kategorialesElement ||
+        !kategorialesElement.category ||
+        !kategorialesElement.items
+      ) {
         continue;
       }
 
@@ -82,11 +103,12 @@ export class SeedService {
         if (!produkt) {
           const parsedPrice = parseFloat(produktItem.price.replace(',', '.'));
           const produktZutaten: ZutatEntity[] = [];
-          
           zutatenMap.forEach((zutatObj, zutatName) => {
             if (
               produktItem.description &&
-              produktItem.description.toLowerCase().includes(zutatName.toLowerCase())
+              produktItem.description
+                .toLowerCase()
+                .includes(zutatName.toLowerCase())
             ) {
               produktZutaten.push(zutatObj);
             }
@@ -103,6 +125,24 @@ export class SeedService {
 
           await this.produktRepository.save(produkt);
         }
+      }
+    }
+
+    const LeverkusenPlzs = [
+      '51371',
+      '51373',
+      '51375',
+      '51377',
+      '51379',
+      '51381',
+    ];
+
+    for (const plz of LeverkusenPlzs) {
+      const existiert = await this.liefergebietRepository.findOne({
+        where: { plz },
+      });
+      if (!existiert) {
+        await this.liefergebietRepository.save({ plz, stadt: 'Leverkusen' });
       }
     }
 

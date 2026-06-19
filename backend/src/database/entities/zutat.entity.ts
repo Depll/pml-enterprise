@@ -12,7 +12,6 @@ export class ZutatEntity {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0.0 })
   aufpreis: number;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @ManyToMany(() => ProduktEntity, (produkt) => produkt.zutaten)
   produkte: ProduktEntity[];
 }

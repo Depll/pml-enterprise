@@ -3,9 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { KategorieEntity } from './database/entities/kategorie.entity';
 import { ProduktEntity } from './database/entities/produkt.entity';
-import { ZutatEntity } from './database/entities/zutat.entity'; // <-- Importieren!
-import { SeedService } from './database/seeds/seed.service'; // <-- Importieren!
+import { ZutatEntity } from './database/entities/zutat.entity';
+import { Liefergebiet } from './database/entities/liefergebiet.entity'; // <-- Sicherstellen, dass das importiert ist!
+import { SeedService } from './database/seeds/seed.service';
 import { MenuModule } from './menu/menu.module';
+import { LiefergebietModule } from './liefergebiet/liefergebiet.module'; // <-- Das neue Modul importieren!
 
 @Module({
   imports: [
@@ -20,14 +22,20 @@ import { MenuModule } from './menu/menu.module';
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
       database: process.env.DB_DATABASE || 'milano_db',
-      // WICHTIG: Füge ZutatEntity hier in das Array ein:
-      entities: [KategorieEntity, ProduktEntity, ZutatEntity], 
+      // 1. HIER die Liefergebiet-Entity in die globalen Entities eintragen:
+      entities: [KategorieEntity, ProduktEntity, ZutatEntity, Liefergebiet],
       synchronize: true,
     }),
-    // Für den Seeder müssen wir die Entities auch "forFeature" bereitstellen
-    TypeOrmModule.forFeature([KategorieEntity, ProduktEntity, ZutatEntity]),
+    // 2. HIER Liefergebiet in das globale forFeature-Array packen, damit der SeedService es direkt sieht:
+    TypeOrmModule.forFeature([
+      KategorieEntity,
+      ProduktEntity,
+      ZutatEntity,
+      Liefergebiet,
+    ]),
     MenuModule,
+    LiefergebietModule, // 3. HIER das neue Modul registrieren (für den Controller/API-Endpunkt)
   ],
-  providers: [SeedService], // <-- Den SeedService hier eintragen!
+  providers: [SeedService],
 })
 export class AppModule {}

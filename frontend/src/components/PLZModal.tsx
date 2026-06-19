@@ -5,26 +5,30 @@ interface PlzModalProps {
   onClose: () => void;
   onSave: (neuePlz: string) => void;
   currentPlz: string;
+  errorMessage?: string; // Definiert in den Props
 }
 
-export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onClose, onSave, currentPlz }) => {
+// 1. HIER errorMessage aus den Props mit herausziehen:
+export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onClose, onSave, currentPlz, errorMessage }) => {
   const [inputValue, setInputValue] = useState<string>(currentPlz);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // Wenn das Modal laut State geschlossen sein soll, rendern wir gar nichts
   if (!isOpen) return null;
 
   const handleSave = () => {
-    // Einfache Validierung: Gültige Leverkusener PLZ prüfen (Beispiel)
+    // Einfache Vorab-Validierung im Frontend
     if (inputValue.trim().length !== 5) {
       setErrorMsg('Bitte gib eine gültige 5-stellige Postleitzahl ein.');
       return;
     }
     
     setErrorMsg('');
-    onSave(inputValue);
-    onClose(); // Schließt das Modal nach dem Speichern
+    onSave(inputValue); // Schickt die PLZ an App.tsx für den Backend-Check
+    // HINWEIS: onClose() wurde hier entfernt, da App.tsx das Modal schließt, wenn die DB ihr "OK" gibt!
   };
+
+  // Wir nutzen die Frontend-Fehlermeldung ODER die Backend-Fehlermeldung, falls vorhanden
+  const anzuzeigenderFehler = errorMsg || errorMessage;
 
   return (
     <div className="pml-modal-overlay">
@@ -41,9 +45,9 @@ export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onClose, onSave, cur
           Gib deine Postleitzahl ein, um zu prüfen, ob wir deine Bestellung zu dir nach Hause liefern können.
         </p>
 
-        {/* Fehleranzeige */}
-        <p className={`pml-plz-error-msg ${errorMsg ? '' : 'pml-hidden'}`}>
-          {errorMsg}
+        {/* 2. HIER GENAU wird der Fehler dynamisch eingeblendet */}
+        <p className={`pml-plz-error-msg ${anzuzeigenderFehler ? '' : 'pml-hidden'}`}>
+          {anzuzeigenderFehler}
         </p>
 
         <div className="pml-modal-input-container">
