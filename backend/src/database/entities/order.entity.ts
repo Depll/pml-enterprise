@@ -39,6 +39,10 @@ export class Order {
   @Column({ name: 'gesamt_preis', type: 'numeric', precision: 10, scale: 2 })
   gesamtPreis: number;
 
+  // NEU: Status der Bestellung (z.B. 'offen' oder 'erledigt')
+  @Column({ type: 'varchar', length: 20, default: 'offen' })
+  status: string;
+
   @CreateDateColumn({ name: 'bestellt_am' })
   bestelltAm: Date;
 

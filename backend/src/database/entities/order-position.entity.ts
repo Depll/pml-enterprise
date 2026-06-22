@@ -6,7 +6,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Order } from './order.entity';
-import { ProduktEntity } from '../entities/produkt.entity'; // Pfad zu deiner Produkt-Entity anpassen
+import { ProduktEntity } from '../entities/produkt.entity';
 
 @Entity('bestellung_position')
 export class OrderPosition {
@@ -22,8 +22,10 @@ export class OrderPosition {
   @Column({ type: 'text', nullable: true })
   anmerkung: string;
 
-  // Wir speichern die IDs der gewählten/entfernten Zutaten einfach als JSON-Arrays,
-  // da PostgreSQL das nativ unterstützt und es für historische Bestellungen performanter ist.
+  // NEU: Hier wird der lesbare Text der Extras/Weglassungen (z.B. "+ Käse, - Ohne Zwiebeln") gespeichert
+  @Column({ name: 'zutaten_text', type: 'text', nullable: true })
+  zutatenText: string;
+
   @Column({ name: 'gewaehlte_zutaten_ids', type: 'jsonb', default: [] })
   gewaehlteZutatenIds: number[];
 

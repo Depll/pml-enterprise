@@ -15,7 +15,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   currentPlz, 
   totalPrice, 
   cartItems,
-  onOrderSuccess // <-- 1. Hier entgegengenommen!
+  onOrderSuccess
 }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -50,7 +50,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // 2. Hier schicken wir die Daten nun live an dein NestJS-Backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -66,15 +65,24 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       email: formData.email || null,
       lieferAnmerkung: formData.anmerkung || null,
       gesamtPreis: totalPrice,
-      positionen: cartItems.map((item) => ({
-        produktId: item.id,
-        menge: item.menge,
-        preisSnapshot: item.preis,
-        anmerkung: item.anmerkung || null,
-        // IDs der Extras und gelöschten Zutaten herausfiltern
-        gewaehlteZutatenIds: (item.gewaehlteZutaten || []).map((z: any) => z.id),
-        entfernteZutatenIds: (item.entfernteZutaten || []).map((z: any) => z.id),
-      }))
+      positionen: cartItems.map((item) => {
+        // GEÄNDERT: Hier bauen wir den Klartext-String für die Küche zusammen
+        const extrasText = (item.gewaehlteZutaten || []).map((z: any) => `+ ${z.name}`).join(', ');
+        const entfernteText = (item.entfernteZutaten || []).map((z: any) => `- Ohne ${z.name}`).join(', ');
+        
+        // Kombiniert beide Strings, falls vorhanden, getrennt durch ein Komma
+        const zutatenKombi = [extrasText, entfernteText].filter(Boolean).join(', ');
+
+        return {
+          produktId: item.id,
+          menge: item.menge,
+          preisSnapshot: item.preis,
+          anmerkung: item.anmerkung || null,
+          gewaehlteZutatenIds: (item.gewaehlteZutaten || []).map((z: any) => z.id),
+          entfernteZutatenIds: (item.entfernteZutaten || []).map((z: any) => z.id),
+          zutatenText: zutatenKombi || null, // <-- NEU: Der Klartext geht jetzt mit an NestJS!
+        };
+      })
     };
 
     try {
@@ -88,8 +96,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       if (response.ok) {
         alert('Bestellung erfolgreich abgeschickt!');
-        onOrderSuccess(); // <-- 3. Leert den Warenkorb im Context!
-        onClose();        // Schließt das Checkout-Fenster
+        onOrderSuccess(); 
+        onClose();        
       } else {
         alert('Fehler beim Senden der Bestellung. Bitte versuche es erneut.');
       }

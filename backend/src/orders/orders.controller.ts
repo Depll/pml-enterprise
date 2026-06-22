@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { Order } from '../database/entities/order.entity';
 
@@ -14,5 +14,14 @@ export class OrdersController {
   @Get()
   async findAll(): Promise<Order[]> {
     return await this.ordersService.findAllOrders();
+  }
+
+  // NEU: Endpunkt, um den Status einer Bestellung zu aktualisieren (z.B. PATCH /orders/12/status)
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: number,
+    @Body('status') status: string,
+  ): Promise<Order> {
+    return await this.ordersService.updateStatus(id, status);
   }
 }
