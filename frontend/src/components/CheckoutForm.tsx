@@ -54,7 +54,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Wir bauen die Daten exakt so um, wie dein NestJS-Backend (Order & OrderPosition) sie erwartet
     const payload = {
       kundeName: formData.name,
       strasse: formData.strasse,
@@ -66,11 +65,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       lieferAnmerkung: formData.anmerkung || null,
       gesamtPreis: totalPrice,
       positionen: cartItems.map((item) => {
-        // GEÄNDERT: Hier bauen wir den Klartext-String für die Küche zusammen
         const extrasText = (item.gewaehlteZutaten || []).map((z: any) => `+ ${z.name}`).join(', ');
         const entfernteText = (item.entfernteZutaten || []).map((z: any) => `- Ohne ${z.name}`).join(', ');
-        
-        // Kombiniert beide Strings, falls vorhanden, getrennt durch ein Komma
         const zutatenKombi = [extrasText, entfernteText].filter(Boolean).join(', ');
 
         return {
@@ -80,7 +76,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           anmerkung: item.anmerkung || null,
           gewaehlteZutatenIds: (item.gewaehlteZutaten || []).map((z: any) => z.id),
           entfernteZutatenIds: (item.entfernteZutaten || []).map((z: any) => z.id),
-          zutatenText: zutatenKombi || null, // <-- NEU: Der Klartext geht jetzt mit an NestJS!
+          zutatenText: zutatenKombi || null,
         };
       })
     };
@@ -95,9 +91,17 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       });
 
       if (response.ok) {
+        // GEÄNDERT: Die Antwort vom NestJS-Backend parsen, um die ID zu bekommen
+        const neueBestellung = await response.json();
+        
         alert('Bestellung erfolgreich abgeschickt!');
-        onOrderSuccess(); 
-        onClose();        
+        onOrderSuccess(); // Leert den Warenkorb
+        onClose();        // Schließt das Formular
+
+        localStorage.setItem('milano_last_order_id', neueBestellung.id.toString());
+        
+        // GEÄNDERT: Den Nutzer automatisch auf die Tracking-Seite schicken
+        window.location.href = `http://localhost:5173/?id=${neueBestellung.id}`;
       } else {
         alert('Fehler beim Senden der Bestellung. Bitte versuche es erneut.');
       }
@@ -118,7 +122,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         <form onSubmit={handleSubmit} className="pml-checkout-form">
           <div className="pml-modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
             
-            {/* Name */}
             <div className="pml-form-group">
               <label>Vor- & Nachname *</label>
               <input 
@@ -130,7 +133,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               {errors.name && <span className="pml-error-text">{errors.name}</span>}
             </div>
 
-            {/* Straße und Hausnummer */}
             <div className="pml-form-row" style={{ display: 'flex', gap: '10px' }}>
               <div className="pml-form-group" style={{ flex: 3 }}>
                 <label>Straße *</label>
@@ -154,7 +156,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               </div>
             </div>
 
-            {/* PLZ und Stadt */}
             <div className="pml-form-row" style={{ display: 'flex', gap: '10px' }}>
               <div className="pml-form-group" style={{ flex: 1 }}>
                 <label>PLZ *</label>
@@ -177,7 +178,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               </div>
             </div>
 
-            {/* Telefon */}
             <div className="pml-form-group">
               <label>Telefonnummer *</label>
               <input 
@@ -190,7 +190,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               {errors.telefon && <span className="pml-error-text">{errors.telefon}</span>}
             </div>
 
-            {/* E-Mail */}
             <div className="pml-form-group">
               <label>E-Mail-Adresse (Optional)</label>
               <input 
@@ -202,7 +201,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               {errors.email && <span className="pml-error-text">{errors.email}</span>}
             </div>
 
-            {/* Anmerkungen */}
             <div className="pml-form-group">
               <label>Anmerkung zur Lieferung</label>
               <textarea 
@@ -216,7 +214,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
           </div>
 
-          {/* Footer des Formulars */}
           <div className="pml-checkout-footer" style={{ padding: '20px', borderTop: '1px solid #2d3748', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <span style={{ color: '#718096', fontSize: '14px' }}>Gesamtsumme</span>

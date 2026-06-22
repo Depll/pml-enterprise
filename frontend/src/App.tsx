@@ -9,10 +9,11 @@ import { CartDrawer } from './components/CartDrawer';
 import { ImpressumModal } from './components/ImpressumModal';
 import { DatenschutzModal } from './components/DatenschutzModal';
 import { CheckoutForm } from './components/CheckoutForm';
-import { AdminDashboard } from './components/AdminDashboard'; // <-- NEU: Importieren
+import { AdminDashboard } from './components/AdminDashboard'; 
+import { OrderStatus } from './components/OrderStatus'; 
 
 function App() {
-  const [isAdminMode, setIsAdminMode] = useState<boolean>(false); // <-- NEU: Zustand für Admin-Modus
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(false); 
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isPlzModalOpen, setIsPlzModalOpen] = useState<boolean>(false);
   const [isImpressumOpen, setIsImpressumOpen] = useState<boolean>(false);
@@ -30,6 +31,16 @@ function App() {
   const [plzError, setPlzError] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>('alle');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Prüfen, ob der Kunde eine Bestell-ID in der URL hat
+  const queryParams = new URLSearchParams(window.location.search);
+  const isCustomerTracking = queryParams.has('id');
+
+  // NEU: Schauen, ob im Browser noch eine aktive Bestell-ID im Cache liegt
+  const lastOrderId = localStorage.getItem('milano_last_order_id');
+
+  // Zustand, um den Banner manuell wegzuklicken, falls er stört
+  const [hideBanner, setHideBanner] = useState<boolean>(false);
 
   const handlePlzSave = async (neuePlz: string) => {
     if (!/^\d{5}$/.test(neuePlz)) {
@@ -51,11 +62,16 @@ function App() {
       }
     } catch (error) {
       console.error('Fehler beim API-Aufruf:', error);
-      setPlzError('Verbindung zum Server fehlgeschlagen.');
+      setPlzError('Verbindung zum Server failed.');
     }
   };
 
-  // <-- NEU: Wenn der Admin-Modus aktiv ist, rendern wir NUR das Dashboard
+  // Wenn "?id=" in der URL steht, rendern wir NUR den Live-Tracker für den Kunden
+  if (isCustomerTracking) {
+    return <OrderStatus />;
+  }
+
+  // Wenn der Admin-Modus aktiv ist, rendern wir das Küchen-Dashboard
   if (isAdminMode) {
     return (
       <div>
@@ -72,8 +88,39 @@ function App() {
     );
   }
 
+  // Normaler Pizza-Shop
   return (
     <div className="pml-app-wrapper">
+      
+      {/* NEU: Info-Banner für die aktive Bestellung */}
+      {lastOrderId && !hideBanner && (
+        <div style={{ 
+          backgroundColor: '#f6ad55', 
+          color: '#1a202c', 
+          padding: '12px', 
+          textAlign: 'center', 
+          fontWeight: 'bold', 
+          fontSize: '14px', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          gap: '15px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}>
+          <span>🛵 Du hast eine aktive Bestellung laufen!</span>
+          <a href={`/?id=${lastOrderId}`} style={{ color: '#1a202c', textDecoration: 'underline', fontWeight: '900' }}>
+            Hier live verfolgen →
+          </a>
+          <button 
+            onClick={() => setHideBanner(true)} 
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', marginLeft: '25px', color: '#1a202c', fontWeight: 'bold' }}
+            title="Diesen Hinweis ausblenden"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <Hero 
         onOpenCart={() => setIsCartOpen(true)} 
         onOpenPlz={() => {
@@ -135,7 +182,6 @@ function App() {
         }}
       />
 
-      {/* NEU: Ein kleiner, diskreter Button unten rechts in der Ecke für die Küche */}
       <button
         onClick={() => setIsAdminMode(true)}
         style={{
