@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 interface Zutat {
   id: number;
   name: string;
-  aufpreis: number; // Auf deine DB-Struktur angepasst
+  aufpreis: number;
 }
 
 interface Product {
@@ -58,16 +58,16 @@ export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [kategorien, setKategorien] = useState<Kategorie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'offen' | 'erledigt' | 'menu'>('offen');
+  
+  // GEÄNDERT: activeTab unterstützt jetzt auch 'zubereitung'
+  const [activeTab, setActiveTab] = useState<'offen' | 'zubereitung' | 'erledigt' | 'menu'>('offen');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
 
-  // States für das "Neues Produkt"-Formular
   const [newProdName, setNewProdName] = useState('');
   const [newProdBeschreibung, setNewProdBeschreibung] = useState('');
   const [newProdPreis, setNewProdPreis] = useState('');
   const [newProdKategorieId, setNewProdKategorieId] = useState<number | ''>('');
 
-  // Temporäre States für das Hinzufügen von neuen Zutaten pro Produkt
   const [newZutatNames, setNewZutatNames] = useState<Record<number, string>>({});
   const [newZutatPrices, setNewZutatPrices] = useState<Record<number, string>>({});
 
@@ -168,11 +168,7 @@ export const AdminDashboard: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData),
       });
-      if (response.ok) {
-        fetchMenu();
-      } else {
-        alert('Fehler beim Aktualisieren des Produkts.');
-      }
+      if (response.ok) fetchMenu();
     } catch (error) {
       console.error(error);
     }
@@ -185,11 +181,7 @@ export const AdminDashboard: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData),
       });
-      if (response.ok) {
-        fetchMenu();
-      } else {
-        alert('Fehler beim Aktualisieren der Zutat.');
-      }
+      if (response.ok) fetchMenu();
     } catch (error) {
       console.error('Fehler beim Update der Zutat:', error);
     }
@@ -218,26 +210,19 @@ export const AdminDashboard: React.FC = () => {
         setNewZutatNames(prev => ({ ...prev, [produktId]: '' }));
         setNewZutatPrices(prev => ({ ...prev, [produktId]: '' }));
         fetchMenu();
-      } else {
-        alert('Fehler beim Hinzufügen des Extras.');
       }
     } catch (error) {
       console.error('Fehler beim Erstellen der Zutat:', error);
     }
   };
 
-  // NEU: Zutat/Extra unwiderruflich löschen
   const handleDeleteZutat = async (id: number) => {
     if (!window.confirm('Möchtest du dieses Extra wirklich löschen?')) return;
     try {
       const response = await fetch(`http://localhost:3000/menu/zutat/${id}`, {
         method: 'DELETE',
       });
-      if (response.ok) {
-        fetchMenu();
-      } else {
-        alert('Fehler beim Löschen der Zutat.');
-      }
+      if (response.ok) fetchMenu();
     } catch (error) {
       console.error('Fehler beim Löschen:', error);
     }
@@ -249,11 +234,7 @@ export const AdminDashboard: React.FC = () => {
       const response = await fetch(`http://localhost:3000/menu/${id}`, {
         method: 'DELETE',
       });
-      if (response.ok) {
-        fetchMenu();
-      } else {
-        alert('Fehler beim Löschen.');
-      }
+      if (response.ok) fetchMenu();
     } catch (error) {
       console.error(error);
     }
@@ -284,8 +265,6 @@ export const AdminDashboard: React.FC = () => {
         setNewProdBeschreibung('');
         setNewProdPreis('');
         fetchMenu();
-      } else {
-        alert('Fehler beim Hinzufügen.');
       }
     } catch (error) {
       console.error(error);
@@ -357,7 +336,8 @@ export const AdminDashboard: React.FC = () => {
     return <div style={{ color: '#fff', padding: '20px' }}>Bestellungen werden geladen...</div>;
   }
 
-  const filteredOrders = orders.filter(o => activeTab === 'offen' ? o.status === 'offen' : o.status === 'erledigt');
+  // GEÄNDERT: Filtert die Liste passend zum ausgewählten activeTab
+  const filteredOrders = orders.filter(o => o.status === activeTab);
 
   return (
     <div style={{ padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', color: '#fff', fontFamily: 'sans-serif' }}>
@@ -394,10 +374,13 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs Layout */}
+      {/* GEÄNDERT: Tabs Layout mit neuem "Zubereitung"-Reiter */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #2d3748', paddingBottom: '10px' }}>
         <button onClick={() => setActiveTab('offen')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'offen' ? '#ef4444' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-          Offene Bestellungen ({orders.filter(o => o.status === 'offen').length})
+          Neue Bestellungen ({orders.filter(o => o.status === 'offen').length})
+        </button>
+        <button onClick={() => setActiveTab('zubereitung')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'zubereitung' ? '#f6ad55' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          ⏳ In Zubereitung ({orders.filter(o => o.status === 'zubereitung').length})
         </button>
         <button onClick={() => setActiveTab('erledigt')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'erledigt' ? '#4a5568' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           Archiv (Erledigt) ({orders.filter(o => o.status === 'erledigt').length})
@@ -410,7 +393,7 @@ export const AdminDashboard: React.FC = () => {
       {/* --- BESTELLUNGEN TABS --- */}
       {activeTab !== 'menu' && (
         filteredOrders.length === 0 ? (
-          <p style={{ color: '#a0aec0', fontSize: '16px' }}>Keine Bestellungen vorhanden. 🎉</p>
+          <p style={{ color: '#a0aec0', fontSize: '16px' }}>Keine Bestellungen in dieser Kategorie. 🎉</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {filteredOrders.map((order) => (
@@ -423,9 +406,23 @@ export const AdminDashboard: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>{Number(order.gesamtPreis).toFixed(2).replace('.', ',')} €</div>
                     <button onClick={() => handlePrintOrder(order)} style={{ padding: '8px 12px', backgroundColor: '#4a5568', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>🖨️</button>
-                    <button onClick={() => handleUpdateStatus(order.id, activeTab === 'offen' ? 'erledigt' : 'offen')} style={{ padding: '8px 16px', backgroundColor: activeTab === 'offen' ? '#10b981' : '#3182ce', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      {activeTab === 'offen' ? '✔ Erledigt' : '↩ Reaktivieren'}
-                    </button>
+                    
+                    {/* GEÄNDERT: Dynamischer Aktions-Button je nach derzeitigem Status */}
+                    {order.status === 'offen' && (
+                      <button onClick={() => handleUpdateStatus(order.id, 'zubereitung')} style={{ padding: '8px 16px', backgroundColor: '#f6ad55', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        👨‍🍳 In den Ofen
+                      </button>
+                    )}
+                    {order.status === 'zubereitung' && (
+                      <button onClick={() => handleUpdateStatus(order.id, 'erledigt')} style={{ padding: '8px 16px', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        ✔ Fertig / Ausgeliefert
+                      </button>
+                    )}
+                    {order.status === 'erledigt' && (
+                      <button onClick={() => handleUpdateStatus(order.id, 'zubereitung')} style={{ padding: '8px 16px', backgroundColor: '#3182ce', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        ↩ Reaktivieren
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
@@ -455,8 +452,6 @@ export const AdminDashboard: React.FC = () => {
       {/* --- SPEISEKARTEN VERWALTUNG TAB --- */}
       {activeTab === 'menu' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-          
-          {/* Formular oben */}
           <div style={{ backgroundColor: '#2d3748', padding: '20px', borderRadius: '8px', border: '1px solid #3182ce' }}>
             <h3 style={{ color: '#3182ce', margin: '0 0 15px 0' }}>➕ Neues Gericht hinzufügen</h3>
             <form onSubmit={handleAddProduct} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -488,11 +483,9 @@ export const AdminDashboard: React.FC = () => {
             </form>
           </div>
 
-          {/* Liste aller Gerichte sortiert nach Kategorie */}
           {kategorien.map((kat) => (
             <div key={kat.id} style={{ backgroundColor: '#2d3748', padding: '20px', borderRadius: '8px' }}>
               <h3 style={{ color: '#f6ad55', borderBottom: '2px solid #4a5568', paddingBottom: '5px', margin: '0 0 15px 0' }}>{kat.name}</h3>
-              
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {kat.produkte.map((prod) => (
                   <div 
@@ -505,7 +498,6 @@ export const AdminDashboard: React.FC = () => {
                       borderLeft: prod.aktiv === false ? '4px solid #ef4444' : '4px solid #10b981'
                     }}
                   >
-                    {/* Haupt-Produktzeile */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px', marginBottom: '10px' }}>
                       <div style={{ display: 'flex', gap: '15px', flex: '1', minWidth: '300px' }}>
                         <input 
@@ -559,13 +551,11 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Integrierte Zutaten-Verwaltung direkt unter dem Gericht */}
                     <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#2d3748', borderRadius: '6px' }}>
                       <span style={{ fontSize: '12px', color: '#f6ad55', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>
                         🌶️ Extras / Zutaten für dieses Gericht bearbeiten:
                       </span>
                       
-                      {/* Vorhandene Zutaten listen */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '12px' }}>
                         {prod.zutaten && prod.zutaten.map((zutat) => (
                           <div 
@@ -585,8 +575,6 @@ export const AdminDashboard: React.FC = () => {
                               style={{ backgroundColor: '#2d3748', color: '#f6ad55', border: '1px solid #4a5568', borderRadius: '3px', fontSize: '12px', width: '50px', textAlign: 'right', padding: '2px' }}
                             />
                             <span style={{ color: '#f6ad55', fontSize: '12px', marginRight: '5px' }}>€</span>
-                            
-                            {/* Lösch-Button für Extras */}
                             <button
                               type="button"
                               onClick={() => handleDeleteZutat(zutat.id)}
@@ -602,7 +590,6 @@ export const AdminDashboard: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Formular zum NEUEN Hinzufügen einer Zutat */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderTop: '1px solid #4a5568', paddingTop: '10px' }}>
                         <input 
                           type="text" 
@@ -626,15 +613,12 @@ export const AdminDashboard: React.FC = () => {
                           ➕ Extra hinzufügen
                         </button>
                       </div>
-
                     </div>
-
                   </div>
                 ))}
               </div>
             </div>
           ))}
-
         </div>
       )}
     </div>
