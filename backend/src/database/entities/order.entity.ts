@@ -39,14 +39,16 @@ export class Order {
   @Column({ name: 'gesamt_preis', type: 'numeric', precision: 10, scale: 2 })
   gesamtPreis: number;
 
-  // NEU: Status der Bestellung (z.B. 'offen' oder 'erledigt')
   @Column({ type: 'varchar', length: 20, default: 'offen' })
   status: string;
+
+  // NEU: Hier speichern wir den Grund, falls die Küche storniert
+  @Column({ name: 'storno_grund', type: 'text', nullable: true })
+  stornoGrund: string;
 
   @CreateDateColumn({ name: 'bestellt_am' })
   bestelltAm: Date;
 
-  // Beziehung zu den einzelnen Pizzen/Gerichten dieser Bestellung
   @OneToMany(() => OrderPosition, (position) => position.order, {
     cascade: true,
   })

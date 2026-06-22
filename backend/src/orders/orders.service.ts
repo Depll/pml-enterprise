@@ -16,7 +16,6 @@ export class OrdersService {
     return savedOrder;
   }
 
-  // GEÄNDERT: Holt jetzt alle Bestellungen, damit das Frontend das Archiv befüllen kann
   async findAllOrders(): Promise<Order[]> {
     return await this.orderRepository.find({
       relations: {
@@ -30,13 +29,24 @@ export class OrdersService {
     });
   }
 
-  // Setzt den Status einer bestimmten Bestellung auf einen neuen Wert (z.B. 'erledigt' oder 'offen')
-  async updateStatus(id: number, status: string): Promise<Order> {
+  // GEÄNDERT: Speichert jetzt auch den Stornogrund ab, falls einer mitgegeben wird
+  async updateStatus(
+    id: number,
+    status: string,
+    stornoGrund: string | undefined,
+  ): Promise<Order> {
     const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) {
       throw new NotFoundException(`Bestellung mit ID ${id} nicht gefunden`);
     }
+
     order.status = status;
+
+    // NEU: Wenn ein Stornogrund übergeben wird, tragen wir ihn ein (sonst bleibt er null/undefined)
+    if (stornoGrund !== undefined) {
+      order.stornoGrund = stornoGrund;
+    }
+
     return await this.orderRepository.save(order);
   }
 }

@@ -4,6 +4,7 @@ interface Order {
   id: number;
   kundeName: string;
   status: string;
+  stornoGrund?: string | null; // NEU: Stornogrund vom Backend empfangen
   gesamtPreis: number;
   bestelltAm: string; 
 }
@@ -47,18 +48,23 @@ export const OrderStatus: React.FC = () => {
 
   // Berechnet die verbleibende Lieferzeit (30 Min Lieferzeit standardmäßig)
   const calculateTimeLeft = (bestelltAmStr: string, status: string) => {
+    // NEU: Wenn storniert, gibt es keine verbleibende Lieferzeit
+    if (status === 'storniert') {
+      setTimeLeft('Abgebrochen 🛑');
+      return;
+    }
+
     if (status === 'erledigt') {
       setTimeLeft('Geliefert! 🎉');
       return;
     }
 
     const bestellZeit = new Date(bestelltAmStr).getTime();
-    const lieferZeit = bestellZeit + 30 * 60 * 1000; // 30 Minuten in Millisekunden
+    const lieferZeit = bestellZeit + 30 * 60 * 1000; 
     const jetzt = new Date().getTime();
     const differenz = lieferZeit - jetzt;
 
     if (differenz <= 0) {
-      // GEÄNDERT: Text orientiert sich bei abgelaufener Zeit am tatsächlichen Status
       if (status === 'offen') {
         setTimeLeft('Wird gleich vorbereitet... 🍕');
       } else if (status === 'zubereitung') {
@@ -93,17 +99,21 @@ export const OrderStatus: React.FC = () => {
   if (error || !order) return <div style={{ color: '#ef4444', padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh' }}>❌ {error || 'Fehler'}</div>;
 
   const getStepStyle = (currentStatus: string, targetStatus: string[], activeColor: string) => {
-    const isActive = targetStatus.includes(currentStatus);
+    // Wenn storniert ist, grauen wir die Standardbalken aus
+    const isCancelled = currentStatus === 'storniert';
+    const isActive = !isCancelled && targetStatus.includes(currentStatus);
+    
     return {
       flex: 1,
       padding: '15px',
       backgroundColor: isActive ? activeColor : '#2d3748',
-      color: '#fff',
+      color: isCancelled ? '#718096' : '#fff',
       textAlign: 'center' as const,
       borderRadius: '8px',
       fontWeight: isActive ? 'bold' as const : 'normal' as const,
       transition: 'all 0.5s ease',
-      boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.3)' : 'none'
+      boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.3)' : 'none',
+      opacity: isCancelled ? 0.4 : 1
     };
   };
 
@@ -119,12 +129,13 @@ export const OrderStatus: React.FC = () => {
             <span style={{ fontSize: '12px', color: '#a0aec0' }}>Bestellnummer:</span>
             <h3 style={{ margin: '5px 0', fontSize: '20px' }}>#{order.id}</h3>
           </div>
-          <div style={{ flex: 1, backgroundColor: '#1a202c', padding: '15px', borderRadius: '8px', textAlign: 'center', border: '1px solid #f6ad55' }}>
-            <span style={{ fontSize: '12px', color: '#f6ad55', fontWeight: 'bold' }}>Geschätzte Lieferzeit:</span>
-            <h3 style={{ margin: '5px 0', fontSize: '20px', color: '#fff' }}>{timeLeft}</h3>
+          <div style={{ flex: 1, backgroundColor: '#1a202c', padding: '15px', borderRadius: '8px', textAlign: 'center', border: order.status === 'storniert' ? '1px solid #ef4444' : '1px solid #f6ad55' }}>
+            <span style={{ fontSize: '12px', color: order.status === 'storniert' ? '#ef4444' : '#f6ad55', fontWeight: 'bold' }}>Status / Lieferzeit:</span>
+            <h3 style={{ margin: '5px 0', fontSize: '20px', color: order.status === 'storniert' ? '#ef4444' : '#fff' }}>{timeLeft}</h3>
           </div>
         </div>
 
+        {/* Die Statusboxen */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
           <div style={getStepStyle(order.status, ['offen', 'zubereitung', 'erledigt'], '#ef4444')}>
             📥<br />Eingegangen
@@ -137,10 +148,32 @@ export const OrderStatus: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', padding: '15px', borderRadius: '6px', border: '1px dashed #4a5568', marginBottom: '30px' }}>
+        {/* Informationstext je nach Status */}
+        <div style={{ 
+          textAlign: 'center', 
+          fontSize: '16px', 
+          fontWeight: 'bold', 
+          padding: '15px', 
+          borderRadius: '6px', 
+          border: order.status === 'storniert' ? '1px solid #ef4444' : '1px dashed #4a5568', 
+          backgroundColor: order.status === 'storniert' ? '#742a2a' : 'transparent',
+          marginBottom: '30px' 
+        }}>
           {order.status === 'offen' && '⏳ Deine Bestellung ist in der Warteschlange und wird gleich bestätigt.'}
           {order.status === 'zubereitung' && '🔥 Gute Nachrichten! Deine Pizza wird gerade frisch gebacken.'}
           {order.status === 'erledigt' && '✅ Guten Appetit! Deine Bestellung ist fertig zubereitet oder bereits auf dem Weg.'}
+          
+          {/* NEU: Anzeige für die Stornierung */}
+          {order.status === 'storniert' && (
+            <div>
+              <span style={{ color: '#fca5a5' }}>🛑 Diese Bestellung wurde storniert.</span>
+              {order.stornoGrund && (
+                <div style={{ fontStyle: 'italic', fontWeight: 'normal', fontSize: '14px', marginTop: '8px', color: '#fecaca' }}>
+                  Grund der Küche: "{order.stornoGrund}"
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ textAlign: 'center' }}>

@@ -16,12 +16,18 @@ export class OrdersController {
     return await this.ordersService.findAllOrders();
   }
 
-  // NEU: Endpunkt, um den Status einer Bestellung zu aktualisieren (z.B. PATCH /orders/12/status)
+  // GEÄNDERT: Nimmt jetzt Status AND optionalen Stornogrund entgegen
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: number,
-    @Body('status') status: string,
+    @Body() updateData: { status: string; stornoGrund?: string },
   ): Promise<Order> {
-    return await this.ordersService.updateStatus(id, status);
+    // Falls dein Service bisher nur (id, status) erwartet hat, müssen wir hier
+    // sicherstellen, dass er auch mit dem Grund umgehen kann.
+    return await this.ordersService.updateStatus(
+      id,
+      updateData.status,
+      updateData.stornoGrund,
+    );
   }
 }

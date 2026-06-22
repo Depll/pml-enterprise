@@ -50,6 +50,7 @@ interface Order {
   lieferAnmerkung: string | null;
   gesamtPreis: number;
   status: string; 
+  stornoGrund: string | null; // NEU: Damit wir den Grund im Dashboard anzeigen können, falls storniert
   bestelltAm: string;
   positionen: OrderPosition[];
 }
@@ -57,10 +58,10 @@ interface Order {
 export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [kategorien, setKategorien] = useState<Kategorie[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [, setLoading] = useState<boolean>(true);
   
-  // GEÄNDERT: activeTab unterstützt jetzt auch 'zubereitung'
-  const [activeTab, setActiveTab] = useState<'offen' | 'zubereitung' | 'erledigt' | 'menu'>('offen');
+  // GEÄNDERT: activeTab unterstützt jetzt auch 'storniert'
+  const [activeTab, setActiveTab] = useState<'offen' | 'zubereitung' | 'erledigt' | 'storniert' | 'menu'>('offen');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
 
   const [newProdName, setNewProdName] = useState('');
@@ -148,17 +149,29 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateStatus = async (orderId: number, newStatus: string) => {
+  // GEÄNDERT: Unterstützt jetzt optional die Übergabe eines Stornogrundes
+  const handleUpdateStatus = async (orderId: number, newStatus: string, stornoGrund?: string) => {
     try {
       const response = await fetch(`http://localhost:3000/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, stornoGrund: stornoGrund || undefined }),
       });
       if (response.ok) fetchOrders();
     } catch (error) {
       console.error('Verbindungsfehler:', error);
     }
+  };
+
+  // NEU: Logik um den Grund abzufragen und das Storno einzuleiten
+  const handleCancelOrder = (orderId: number) => {
+    const grund = window.prompt('Bitte gib einen Grund für die Stornierung ein (wird dem Kunden angezeigt):');
+    if (grund === null) return; // Abgebrochen
+    if (!grund.trim()) {
+      alert('Ein Stornogrund wird zwingend benötigt!');
+      return;
+    }
+    handleUpdateStatus(orderId, 'storniert', grund);
   };
 
   const handleUpdateProduct = async (id: number, updatedData: Partial<Product>) => {
@@ -219,7 +232,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteZutat = async (id: number) => {
     if (!window.confirm('Möchtest du dieses Extra wirklich löschen?')) return;
     try {
-      const response = await fetch(`http://localhost:3000/menu/zutat/${id}`, {
+      const response = await fetch('http://localhost:3000/menu/zutat/' + id, {
         method: 'DELETE',
       });
       if (response.ok) fetchMenu();
@@ -231,7 +244,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteProduct = async (id: number) => {
     if (!window.confirm('Möchtest du dieses Gericht wirklich von der Karte löschen?')) return;
     try {
-      const response = await fetch(`http://localhost:3000/menu/${id}`, {
+      const response = await fetch('http://localhost:3000/menu/' + id, {
         method: 'DELETE',
       });
       if (response.ok) fetchMenu();
@@ -328,15 +341,12 @@ export const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [soundEnabled]);
 
-  const totalUmsatz = orders.reduce((sum, o) => sum + Number(o.gesamtPreis), 0);
-  const totalGerichte = orders.reduce((sum, o) => sum + o.positionen.reduce((pSum, p) => pSum + p.menge, 0), 0);
-  const avgBestellwert = orders.length > 0 ? totalUmsatz / orders.length : 0;
+  // Statistik berechnet sich nur aus nicht-stornierten Bestellungen, um die Werte nicht zu verfälschen
+  const activeOrdersOnly = orders.filter(o => o.status !== 'storniert');
+  const totalUmsatz = activeOrdersOnly.reduce((sum, o) => sum + Number(o.gesamtPreis), 0);
+  const totalGerichte = activeOrdersOnly.reduce((sum, o) => sum + o.positionen.reduce((pSum, p) => pSum + p.menge, 0), 0);
+  const avgBestellwert = activeOrdersOnly.length > 0 ? totalUmsatz / activeOrdersOnly.length : 0;
 
-  if (loading) {
-    return <div style={{ color: '#fff', padding: '20px' }}>Bestellungen werden geladen...</div>;
-  }
-
-  // GEÄNDERT: Filtert die Liste passend zum ausgewählten activeTab
   const filteredOrders = orders.filter(o => o.status === activeTab);
 
   return (
@@ -374,7 +384,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* GEÄNDERT: Tabs Layout mit neuem "Zubereitung"-Reiter */}
+      {/* GEÄNDERT: Neuer Reiter für Stornierte Bestellungen */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #2d3748', paddingBottom: '10px' }}>
         <button onClick={() => setActiveTab('offen')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'offen' ? '#ef4444' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           Neue Bestellungen ({orders.filter(o => o.status === 'offen').length})
@@ -384,6 +394,9 @@ export const AdminDashboard: React.FC = () => {
         </button>
         <button onClick={() => setActiveTab('erledigt')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'erledigt' ? '#4a5568' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           Archiv (Erledigt) ({orders.filter(o => o.status === 'erledigt').length})
+        </button>
+        <button onClick={() => setActiveTab('storniert')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'storniert' ? '#718096' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          ❌ Storniert ({orders.filter(o => o.status === 'storniert').length})
         </button>
         <button onClick={() => setActiveTab('menu')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'menu' ? '#3182ce' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           📖 Speisekarte verwalten
@@ -407,18 +420,28 @@ export const AdminDashboard: React.FC = () => {
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>{Number(order.gesamtPreis).toFixed(2).replace('.', ',')} €</div>
                     <button onClick={() => handlePrintOrder(order)} style={{ padding: '8px 12px', backgroundColor: '#4a5568', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>🖨️</button>
                     
-                    {/* GEÄNDERT: Dynamischer Aktions-Button je nach derzeitigem Status */}
+                    {/* Aktions-Buttons */}
                     {order.status === 'offen' && (
-                      <button onClick={() => handleUpdateStatus(order.id, 'zubereitung')} style={{ padding: '8px 16px', backgroundColor: '#f6ad55', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                        👨‍🍳 In den Ofen
-                      </button>
+                      <>
+                        <button onClick={() => handleUpdateStatus(order.id, 'zubereitung')} style={{ padding: '8px 16px', backgroundColor: '#f6ad55', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          👨‍🍳 In den Ofen
+                        </button>
+                        <button onClick={() => handleCancelOrder(order.id)} style={{ padding: '8px 16px', backgroundColor: '#e53e3e', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          ❌ Stornieren
+                        </button>
+                      </>
                     )}
                     {order.status === 'zubereitung' && (
-                      <button onClick={() => handleUpdateStatus(order.id, 'erledigt')} style={{ padding: '8px 16px', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                        ✔ Fertig / Ausgeliefert
-                      </button>
+                      <>
+                        <button onClick={() => handleUpdateStatus(order.id, 'erledigt')} style={{ padding: '8px 16px', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          ✔ Fertig / Ausgeliefert
+                        </button>
+                        <button onClick={() => handleCancelOrder(order.id)} style={{ padding: '8px 16px', backgroundColor: '#e53e3e', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          ❌ Stornieren
+                        </button>
+                      </>
                     )}
-                    {order.status === 'erledigt' && (
+                    {(order.status === 'erledigt' || order.status === 'storniert') && (
                       <button onClick={() => handleUpdateStatus(order.id, 'zubereitung')} style={{ padding: '8px 16px', backgroundColor: '#3182ce', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                         ↩ Reaktivieren
                       </button>
@@ -429,6 +452,14 @@ export const AdminDashboard: React.FC = () => {
                   <div style={{ flex: '1', minWidth: '200px' }}>
                     <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Adresse</h4>
                     <p style={{ margin: 0, fontSize: '14px' }}>{order.strasse} {order.hausnummer}<br />{order.plz} {order.stadt}<br />Tel: {order.telefon}</p>
+                    
+                    {/* NEU: Stornogrund anzeigen, wenn vorhanden */}
+                    {order.stornoGrund && (
+                      <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#742a2a', borderLeft: '4px solid #e53e3e', borderRadius: '4px' }}>
+                        <strong style={{ fontSize: '13px', color: '#feb2b2' }}>Stornogrund:</strong>
+                        <p style={{ margin: '3px 0 0 0', fontSize: '13px', color: '#fff' }}>"{order.stornoGrund}"</p>
+                      </div>
+                    )}
                   </div>
                   <div style={{ flex: '2', minWidth: '300px' }}>
                     <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Gerichte</h4>

@@ -12,6 +12,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
 
   if (!isOpen) return null;
 
+  // NEU: Mindestbestellwert Logik
+  const MINDESTBESTELLWERT = 15.0;
+  const istUnterMindestwert = totalPrice < MINDESTBESTELLWERT && cart.length > 0;
+  const fehlenderBetrag = MINDESTBESTELLWERT - totalPrice;
+
   return (
     <div className="pml-cart-overlay" onClick={onClose}>
       <div className="pml-cart-drawer" onClick={(e) => e.stopPropagation()}>
@@ -33,7 +38,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
           ) : (
             <div className="pml-cart-items-wrapper">
               {cart.map((item, index) => {
-                // Da ID bei identischen Produkten gleich sein kann, nutzen wir hier am besten eine Kombi oder den Index als Key
                 const itemKey = `${item.id}-${index}`;
 
                 return (
@@ -49,14 +53,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
                           </div>
                         )}
 
-                        {/* 2. NEU: ENTFERNTE ZUTATEN */}
+                        {/* 2. ENTFERNTE ZUTATEN */}
                         {item.entfernteZutaten && item.entfernteZutaten.length > 0 && (
                           <div style={{ fontSize: '12px', color: '#e53e3e', marginTop: '2px', textDecoration: 'line-through' }}>
                             ohne {item.entfernteZutaten.map(z => z.name).join(', ')}
                           </div>
                         )}
 
-                        {/* 3. NEU: ANMERKUNG FÜR DIE KÜCHE */}
+                        {/* 3. ANMERKUNG FÜR DIE KÜCHE */}
                         {item.anmerkung && item.anmerkung.trim() !== '' && (
                           <div style={{ fontSize: '12px', color: '#718096', marginTop: '6px', fontStyle: 'italic', backgroundColor: '#f7fafc', padding: '4px 8px', borderRadius: '4px', borderLeft: '2px solid #cbd5e0' }}>
                             📝 "{item.anmerkung}"
@@ -96,6 +100,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
 
         {/* Footer */}
         <div className="pml-cart-footer">
+          {/* NEU: Warnhinweis, wenn der Mindestbestellwert nicht erreicht ist */}
+          {istUnterMindestwert && (
+            <div style={{ 
+              backgroundColor: '#fffaf0', 
+              border: '1px solid #feebc8', 
+              color: '#c05621', 
+              padding: '10px', 
+              borderRadius: '6px', 
+              fontSize: '13px', 
+              marginBottom: '15px', 
+              textAlign: 'center',
+              fontWeight: '500'
+            }}>
+              ⚠️ Mindestbestellwert von {MINDESTBESTELLWERT.toFixed(2).replace('.', ',')} € nicht erreicht.<br />
+              Dir fehlen noch <strong>{fehlenderBetrag.toFixed(2).replace('.', ',')} €</strong>!
+            </div>
+          )}
+
           <div className="pml-price-summary-row pml-total-row">
             <span>Gesamtsumme:</span>
             <span className="pml-total-price-badge">
@@ -103,12 +125,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
             </span>
           </div>
           <div className="pml-cart-action-area">
+            {/* GEÄNDERT: Button deaktiviert sich jetzt auch, wenn der Mindestbestellwert unterschritten ist */}
             <button 
               className="pml-btn-address-submit" 
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || istUnterMindestwert}
               onClick={onOpenCheckout}
+              style={{
+                opacity: (cart.length === 0 || istUnterMindestwert) ? 0.5 : 1,
+                cursor: (cart.length === 0 || istUnterMindestwert) ? 'not-allowed' : 'pointer'
+              }}
             >
-              Zur Kasse gehen
+              {istUnterMindestwert ? 'Mindestbestellwert beachten' : 'Zur Kasse gehen'}
             </button>
           </div>
         </div>
