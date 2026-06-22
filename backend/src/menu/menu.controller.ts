@@ -7,12 +7,18 @@ import {
   Body,
   Param,
 } from '@nestjs/common';
-// WICHTIG: Hier werden die DTOs jetzt sauber aus dem Service importiert!
 import { MenuService, CreateProductDto, UpdateZutatDto } from './menu.service';
+import { IsString, IsNumber, Min, Length } from 'class-validator';
 
-// Auch als Klasse deklariert, um Linter/NestJS glücklich zu machen
 export class AddZutatInput {
+  @IsString({ message: 'Der Name der Zutat muss ein Text sein.' })
+  @Length(2, 50, {
+    message: 'Der Name muss zwischen 2 und 50 Zeichen lang sein.',
+  })
   name: string;
+
+  @IsNumber({}, { message: 'Der Preis muss eine Zahl sein.' })
+  @Min(0, { message: 'Der Preis darf nicht negativ sein.' })
   preis: number;
 }
 

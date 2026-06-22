@@ -4,18 +4,49 @@ import { Repository } from 'typeorm';
 import { KategorieEntity } from '../database/entities/kategorie.entity';
 import { ProduktEntity } from '../database/entities/produkt.entity';
 import { ZutatEntity } from '../database/entities/zutat.entity';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  Min,
+  Length,
+} from 'class-validator';
 
-// Als Klassen definiert, damit NestJS-Dekoratoren im Controller fehlerfrei funktionieren
 export class CreateProductDto {
+  @IsString({ message: 'Der Name muss ein Text sein.' })
+  @Length(2, 50, {
+    message: 'Der Name muss zwischen 2 und 50 Zeichen lang sein.',
+  })
   name: string;
+
+  @IsOptional()
+  @IsString({ message: 'Die Beschreibung muss ein Text sein.' })
   beschreibung?: string;
+
+  @IsNumber({}, { message: 'Der Preis muss eine Zahl sein.' })
+  @Min(0, { message: 'Der Preis darf nicht negativ sein.' })
   preis: number;
+
+  @IsNumber({}, { message: 'Die Kategorie-ID muss eine Zahl sein.' })
   kategorieId: number;
+
+  @IsOptional()
+  @IsBoolean({ message: 'Aktiv muss ein Boolean sein.' })
   aktiv?: boolean;
 }
 
 export class UpdateZutatDto {
+  @IsOptional()
+  @IsString({ message: 'Der Name muss ein Text sein.' })
+  @Length(2, 50, {
+    message: 'Der Name muss zwischen 2 und 50 Zeichen lang sein.',
+  })
   name?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Der Aufpreis muss eine Zahl sein.' })
+  @Min(0, { message: 'Der Aufpreis darf nicht negativ sein.' })
   aufpreis?: number;
 }
 
@@ -83,6 +114,7 @@ export class MenuService {
       throw new NotFoundException(`Produkt mit ID ${produktId} nicht gefunden`);
     }
 
+    // Korrektur: Nutzt 'aufpreis' und übergibt das Produkt in einem Array [produkt]
     const neueZutat = this.zutatRepository.create({
       name: zutatData.name,
       aufpreis: Number(zutatData.preis),

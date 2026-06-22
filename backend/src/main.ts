@@ -1,10 +1,19 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { SeedService } from './database/seeds/seed.service'; // <-- Importieren
+import { SeedService } from './database/seeds/seed.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
+
+  // Automatische Validierungs-Pipe registrieren
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Filtert Felder heraus, die nicht im DTO stehen
+      transform: true, // Konvertiert Typen automatisch passend zum DTO
+    }),
+  );
 
   // --- SEEDER START ---
   const seedService = app.get(SeedService);
