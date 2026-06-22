@@ -1,19 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Erweitert: Jedes Item im Warenkorb speichert nun Extras, gelöschte Zutaten und die Küchen-Anmerkung
 export interface CartItem {
   id: number;
   name: string;
   preis: number;
   menge: number;
   gewaehlteZutaten?: Array<{ id: number; name: string; preis: number }>;
-  entfernteZutaten?: Array<{ id: number; name: string }>; // NEU
-  anmerkung?: string; // NEU
+  entfernteZutaten?: Array<{ id: number; name: string }>;
+  anmerkung?: string;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  // Aktualisiert: Nimmt jetzt auch entfernte Zutaten und Anmerkungstexte entgegen
   addToCart: (
     produkt: { id: number; name: string; preis: number }, 
     extras?: Array<{ id: number; name: string; preis: number }>,
@@ -48,7 +46,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('pml_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Verbessert: Prüft jetzt die exakte Kombination aus Extras, weggelassenen Zutaten UND der Anmerkung
   const addToCart = (
     produkt: { id: number; name: string; preis: number }, 
     extras: Array<{ id: number; name: string; preis: number }> = [],
@@ -56,7 +53,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     anmerkung: string = ''
   ) => {
     setCart((prev) => {
-      // Wir prüfen, ob genau DIESE Pizzakonfiguration schon so im Warenkorb liegt
       const existiert = prev.find(
         (item) => 
           item.id === produkt.id && 
@@ -76,7 +72,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
 
-      // Berechne den Basispreis + die Preise aller ausgewählten Extras
       const aufpreisExtras = extras.reduce((sum, ext) => sum + ext.preis, 0);
       const endPreis = produkt.preis + aufpreisExtras;
 

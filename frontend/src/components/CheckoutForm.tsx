@@ -5,16 +5,22 @@ interface CheckoutFormProps {
   onClose: () => void;
   totalPrice: number;
   cartItems: any[];
-  currentPlz: string
+  currentPlz: string;
+  onOrderSuccess: () => void;
 }
 
-export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose,currentPlz, totalPrice, cartItems }) => {
+export const CheckoutForm: React.FC<CheckoutFormProps> = ({ 
+  isOpen, 
+  onClose, 
+  currentPlz, 
+  totalPrice, 
+  cartItems,
+  onOrderSuccess // <-- 1. Hier entgegengenommen!
+}) => {
   const [formData, setFormData] = useState({
     name: '',
     strasse: '',
     hausnummer: '',
-    plz: '51373',
-    stadt: 'Leverkusen',
     telefon: '',
     email: '',
     anmerkung: ''
@@ -24,24 +30,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose,curr
 
   if (!isOpen) return null;
 
-  // Regex-Validierungen
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
-    // Telefonnummer: Nur Zahlen, Leerzeichen, Schrägstrich, Bindestrich, Plus. Mindestens 6 Zeichen.
     const phoneRegex = /^[0-9+\s/-]{6,20}$/;
-    // E-Mail: Standard-Validierung
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    // PLZ: Exakt 5 Zahlen
-    const plzRegex = /^[0-9]{5}$/;
 
     if (!formData.name.trim()) newErrors.name = 'Name wird benötigt';
     if (!formData.strasse.trim()) newErrors.strasse = 'Straße wird benötigt';
     if (!formData.hausnummer.trim()) newErrors.hausnummer = 'Nr. wird benötigt';
     
-    if (!plzRegex.test(formData.plz)) {
-      newErrors.plz = 'Ungültige PLZ (5 Stellen erforderlich)';
-    }
     if (!phoneRegex.test(formData.telefon)) {
       newErrors.telefon = 'Ungültige Telefonnummer';
     }
@@ -53,12 +50,52 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose,curr
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 2. Hier schicken wir die Daten nun live an dein NestJS-Backend
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      alert('Bestellung erfolgreich abgeschickt! (Backend-Anbindung folgt)');
-      // Hier schicken wir die Daten später ans Express-Backend
-      console.log('Bestelldaten:', { kunde: formData, produkte: cartItems, gesamt: totalPrice });
+    if (!validateForm()) return;
+
+    // Wir bauen die Daten exakt so um, wie dein NestJS-Backend (Order & OrderPosition) sie erwartet
+    const payload = {
+      kundeName: formData.name,
+      strasse: formData.strasse,
+      hausnummer: formData.hausnummer,
+      plz: currentPlz,
+      stadt: 'Leverkusen',
+      telefon: formData.telefon,
+      email: formData.email || null,
+      lieferAnmerkung: formData.anmerkung || null,
+      gesamtPreis: totalPrice,
+      positionen: cartItems.map((item) => ({
+        produktId: item.id,
+        menge: item.menge,
+        preisSnapshot: item.preis,
+        anmerkung: item.anmerkung || null,
+        // IDs der Extras und gelöschten Zutaten herausfiltern
+        gewaehlteZutatenIds: (item.gewaehlteZutaten || []).map((z: any) => z.id),
+        entfernteZutatenIds: (item.entfernteZutaten || []).map((z: any) => z.id),
+      }))
+    };
+
+    try {
+      const response = await fetch('http://localhost:3000/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        alert('Bestellung erfolgreich abgeschickt!');
+        onOrderSuccess(); // <-- 3. Leert den Warenkorb im Context!
+        onClose();        // Schließt das Checkout-Fenster
+      } else {
+        alert('Fehler beim Senden der Bestellung. Bitte versuche es erneut.');
+      }
+    } catch (error) {
+      console.error('Verbindungsfehler zum Backend:', error);
+      alert('Der Server antwortet nicht. Läuft das NestJS-Backend?');
     }
   };
 
@@ -116,8 +153,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose,curr
                 <input 
                   type="text" 
                   className="pml-form-input"
-                  value={currentPlz} // <-- Nutzt jetzt die verifizierte PLZ aus der App.tsx
-                  disabled // <-- Verhindert, dass der User die PLZ hier manipulieren kann
+                  value={currentPlz}
+                  disabled 
                 />
               </div>
               
@@ -126,7 +163,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ isOpen, onClose,curr
                 <input 
                   type="text" 
                   className="pml-form-input" 
-                  value="Leverkusen" // <-- Fest auf Leverkusen setzen
+                  value="Leverkusen" 
                   disabled 
                 />
               </div>
