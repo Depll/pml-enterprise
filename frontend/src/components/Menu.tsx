@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { ZutatenModal } from './ZutatenModal';
 
@@ -18,7 +18,7 @@ interface Product {
   name: string;
   beschreibung: string;
   preis: string | number;
-  aktiv: boolean;
+  aktiv: boolean; // Steuert, ob das Produkt verfügbar ist
   zutaten: Zutat[];
 }
 
@@ -68,7 +68,6 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
     setIsModalOpen(true);
   };
 
-  // GEÄNDERT: Nimmt jetzt alle 4 Parameter aus dem angepassten ZutatenModal entgegen
   const handleConfirmExtras = (
     baseProduct: { id: number; name: string; preis: number }, 
     selectedExtras: Zutat[],
@@ -81,7 +80,6 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
       preis: Number(z.aufpreis)
     }));
     
-    // Alle Werte direkt an den Context weiterreichen
     addToCart(baseProduct, formattedExtras, removedZutaten, anmerkung);
   };
 
@@ -115,7 +113,9 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
             return null;
           }
 
-          let filteredProducts = cat.produkte || [];
+          // NEU: Filtert ausverkaufte Produkte (aktiv === false) direkt heraus
+          let filteredProducts = (cat.produkte || []).filter(p => p.aktiv !== false);
+
           if (searchTerm.trim() !== '') {
             filteredProducts = filteredProducts.filter(p => 
               p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 

@@ -1,4 +1,25 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
+
+interface Zutat {
+  id: number;
+  name: string;
+  aufpreis: number; // Auf deine DB-Struktur angepasst
+}
+
+interface Product {
+  id: number;
+  name: string;
+  beschreibung: string;
+  preis: number;
+  aktiv: boolean; 
+  zutaten?: Zutat[];
+}
+
+interface Kategorie {
+  id: number;
+  name: string;
+  produkte: Product[];
+}
 
 interface OrderPosition {
   id: number;
@@ -35,33 +56,55 @@ interface Order {
 
 export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [kategorien, setKategorien] = useState<Kategorie[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'offen' | 'erledigt'>('offen');
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(false); // NEU: Aktivierungs-State für Ton
+  const [activeTab, setActiveTab] = useState<'offen' | 'erledigt' | 'menu'>('offen');
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
 
-  const prevOrdersCount = useRef<number | null>(null);
+  // States für das "Neues Produkt"-Formular
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdBeschreibung, setNewProdBeschreibung] = useState('');
+  const [newProdPreis, setNewProdPreis] = useState('');
+  const [newProdKategorieId, setNewProdKategorieId] = useState<number | ''>('');
+
+  // Temporäre States für das Hinzufügen von neuen Zutaten pro Produkt
+  const [newZutatNames, setNewZutatNames] = useState<Record<number, string>>({});
+  const [newZutatPrices, setNewZutatPrices] = useState<Record<number, string>>({});
 
   const fetchOrders = async () => {
     try {
       const response = await fetch('http://localhost:3000/orders');
       if (response.ok) {
         const data = await response.json();
-        
-        // Filtert nur die offenen Bestellungen, um sie für den Sound-Vergleich zu nutzen
         const currentOffenCount = data.filter((o: Order) => o.status === 'offen').length;
 
-        // Sound abspielen, wenn die Anzahl der OFFENEN Bestellungen steigt UND Sound aktiv ist
-        if (soundEnabled && prevOrdersCount.current !== null && currentOffenCount > prevOrdersCount.current) {
-          playNotificationSound();
-        }
-        prevOrdersCount.current = currentOffenCount;
-        
-        setOrders(data);
+        setOrders((prevOrders) => {
+          const prevOffenCount = prevOrders.filter((o) => o.status === 'offen').length;
+          if (soundEnabled && prevOrders.length > 0 && currentOffenCount > prevOffenCount) {
+            playNotificationSound();
+          }
+          return data;
+        });
       }
     } catch (error) {
       console.error('Fehler beim Laden der Bestellungen:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMenu = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/menu');
+      if (response.ok) {
+        const data = await response.json();
+        setKategorien(data);
+        if (data.length > 0 && newProdKategorieId === '') {
+          setNewProdKategorieId(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Speisekarte:', error);
     }
   };
 
@@ -96,11 +139,9 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // Test-Sound abspielen, damit der User direkt hört, ob es klappt
   const toggleSound = () => {
     if (!soundEnabled) {
       setSoundEnabled(true);
-      // Kurzer Test-Piep, damit der Browser die Audio-Rechte freigibt
       setTimeout(() => playNotificationSound(), 100);
     } else {
       setSoundEnabled(false);
@@ -111,19 +152,143 @@ export const AdminDashboard: React.FC = () => {
     try {
       const response = await fetch(`http://localhost:3000/orders/${orderId}/status`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
+      });
+      if (response.ok) fetchOrders();
+    } catch (error) {
+      console.error('Verbindungsfehler:', error);
+    }
+  };
+
+  const handleUpdateProduct = async (id: number, updatedData: Partial<Product>) => {
+    try {
+      const response = await fetch(`http://localhost:3000/menu/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData),
+      });
+      if (response.ok) {
+        fetchMenu();
+      } else {
+        alert('Fehler beim Aktualisieren des Produkts.');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleUpdateZutat = async (id: number, updatedData: { name?: string; aufpreis?: number }) => {
+    try {
+      const response = await fetch(`http://localhost:3000/menu/zutat/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData),
+      });
+      if (response.ok) {
+        fetchMenu();
+      } else {
+        alert('Fehler beim Aktualisieren der Zutat.');
+      }
+    } catch (error) {
+      console.error('Fehler beim Update der Zutat:', error);
+    }
+  };
+
+  const handleAddZutat = async (produktId: number) => {
+    const name = newZutatNames[produktId];
+    const preisStr = newZutatPrices[produktId] || '0.00';
+
+    if (!name) {
+      alert('Bitte gib einen Namen für das Extra ein!');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3000/menu/${produktId}/zutat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          preis: parseFloat(preisStr.replace(',', '.'))
+        }),
       });
 
       if (response.ok) {
-        fetchOrders();
+        setNewZutatNames(prev => ({ ...prev, [produktId]: '' }));
+        setNewZutatPrices(prev => ({ ...prev, [produktId]: '' }));
+        fetchMenu();
       } else {
-        alert('Fehler beim Aktualisieren der Bestellung.');
+        alert('Fehler beim Hinzufügen des Extras.');
       }
     } catch (error) {
-      console.error('Verbindungsfehler:', error);
+      console.error('Fehler beim Erstellen der Zutat:', error);
+    }
+  };
+
+  // NEU: Zutat/Extra unwiderruflich löschen
+  const handleDeleteZutat = async (id: number) => {
+    if (!window.confirm('Möchtest du dieses Extra wirklich löschen?')) return;
+    try {
+      const response = await fetch(`http://localhost:3000/menu/zutat/${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        fetchMenu();
+      } else {
+        alert('Fehler beim Löschen der Zutat.');
+      }
+    } catch (error) {
+      console.error('Fehler beim Löschen:', error);
+    }
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    if (!window.confirm('Möchtest du dieses Gericht wirklich von der Karte löschen?')) return;
+    try {
+      const response = await fetch(`http://localhost:3000/menu/${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        fetchMenu();
+      } else {
+        alert('Fehler beim Löschen.');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProdName || !newProdPreis || !newProdKategorieId) {
+      alert('Bitte Name, Preis und Kategorie ausfüllen!');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newProdName,
+          beschreibung: newProdBeschreibung,
+          preis: parseFloat(newProdPreis.replace(',', '.')),
+          kategorieId: Number(newProdKategorieId),
+          aktiv: true
+        }),
+      });
+
+      if (response.ok) {
+        setNewProdName('');
+        setNewProdBeschreibung('');
+        setNewProdPreis('');
+        fetchMenu();
+      } else {
+        alert('Fehler beim Hinzufügen.');
+      }
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -177,177 +342,299 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 10000); 
+    fetchMenu();
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 5000); 
     return () => clearInterval(interval);
-  }, [soundEnabled]); // Trigger neu setzen, wenn sich soundEnabled ändert
+  }, [soundEnabled]);
+
+  const totalUmsatz = orders.reduce((sum, o) => sum + Number(o.gesamtPreis), 0);
+  const totalGerichte = orders.reduce((sum, o) => sum + o.positionen.reduce((pSum, p) => pSum + p.menge, 0), 0);
+  const avgBestellwert = orders.length > 0 ? totalUmsatz / orders.length : 0;
 
   if (loading) {
     return <div style={{ color: '#fff', padding: '20px' }}>Bestellungen werden geladen...</div>;
   }
 
-  // Filtert die Bestellungen für die Anzeige
   const filteredOrders = orders.filter(o => activeTab === 'offen' ? o.status === 'offen' : o.status === 'erledigt');
 
   return (
-    <div style={{ padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', color: '#fff' }}>
+    <div style={{ padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', color: '#fff', fontFamily: 'sans-serif' }}>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>🍕 Milano Enterprise - Küchen-Dashboard</h2>
-        
-        {/* NEU: Sound-Aktivierungs-Button im Header */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
             onClick={toggleSound}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: soundEnabled ? '#10b981' : '#4a5568',
-              border: 'none',
-              color: '#fff',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            style={{ padding: '8px 16px', backgroundColor: soundEnabled ? '#10b981' : '#4a5568', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
           >
-            {soundEnabled ? '🔔 Ton: AN' : '🔕 Ton: AUS (Klicken zum Aktivieren)'}
+            {soundEnabled ? '🔔 Ton: AN' : '🔕 Ton: AUS (Aktivieren)'}
           </button>
-
-          <button 
-            onClick={fetchOrders} 
-            style={{ padding: '8px 16px', backgroundColor: '#ef4444', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
+          <button onClick={() => { fetchOrders(); fetchMenu(); }} style={{ padding: '8px 16px', backgroundColor: '#ef4444', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             Aktualisieren
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* KPI Leiste */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1', minWidth: '200px', backgroundColor: '#2d3748', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
+          <span style={{ fontSize: '13px', color: '#a0aec0' }}>Gesamtumsatz</span>
+          <h3 style={{ margin: '5px 0 0 0', fontSize: '24px', color: '#10b981' }}>{totalUmsatz.toFixed(2).replace('.', ',')} €</h3>
+        </div>
+        <div style={{ flex: '1', minWidth: '200px', backgroundColor: '#2d3748', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #3182ce' }}>
+          <span style={{ fontSize: '13px', color: '#a0aec0' }}>Verkaufte Portionen</span>
+          <h3 style={{ margin: '5px 0 0 0', fontSize: '24px', color: '#3182ce' }}>{totalGerichte}x Gerichte</h3>
+        </div>
+        <div style={{ flex: '1', minWidth: '200px', backgroundColor: '#2d3748', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #f6ad55' }}>
+          <span style={{ fontSize: '13px', color: '#a0aec0' }}>Ø Bestellwert</span>
+          <h3 style={{ margin: '5px 0 0 0', fontSize: '24px', color: '#f6ad55' }}>{avgBestellwert.toFixed(2).replace('.', ',')} €</h3>
+        </div>
+      </div>
+
+      {/* Tabs Layout */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #2d3748', paddingBottom: '10px' }}>
-        <button
-          onClick={() => setActiveTab('offen')}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === 'offen' ? '#ef4444' : '#2d3748',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
+        <button onClick={() => setActiveTab('offen')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'offen' ? '#ef4444' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           Offene Bestellungen ({orders.filter(o => o.status === 'offen').length})
         </button>
-        <button
-          onClick={() => setActiveTab('erledigt')}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === 'erledigt' ? '#4a5568' : '#2d3748',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
+        <button onClick={() => setActiveTab('erledigt')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'erledigt' ? '#4a5568' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           Archiv (Erledigt) ({orders.filter(o => o.status === 'erledigt').length})
+        </button>
+        <button onClick={() => setActiveTab('menu')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'menu' ? '#3182ce' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          📖 Speisekarte verwalten
         </button>
       </div>
 
-      {filteredOrders.length === 0 ? (
-        <p style={{ color: '#a0aec0', fontSize: '16px' }}>Keine Bestellungen in dieser Ansicht vorhanden. 🎉</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {filteredOrders.map((order) => (
-            <div key={order.id} style={{ border: '1px solid #2d3748', borderRadius: '8px', padding: '20px', backgroundColor: '#2d3748' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #4a5568', paddingBottom: '10px', marginBottom: '10px' }}>
-                <div>
-                  <strong style={{ fontSize: '18px' }}>Bestellung #{order.id}</strong> - {order.kundeName}
-                  <br />
-                  <span style={{ fontSize: '13px', color: '#a0aec0' }}>
-                    {new Date(order.bestelltAm).toLocaleString('de-DE')}
-                  </span>
-                </div>
-                
-                {/* Actions & Preis */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>
-                    {Number(order.gesamtPreis).toFixed(2).replace('.', ',')} €
+      {/* --- BESTELLUNGEN TABS --- */}
+      {activeTab !== 'menu' && (
+        filteredOrders.length === 0 ? (
+          <p style={{ color: '#a0aec0', fontSize: '16px' }}>Keine Bestellungen vorhanden. 🎉</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {filteredOrders.map((order) => (
+              <div key={order.id} style={{ border: '1px solid #2d3748', borderRadius: '8px', padding: '20px', backgroundColor: '#2d3748' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #4a5568', paddingBottom: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <strong style={{ fontSize: '18px' }}>Bestellung #{order.id}</strong> - {order.kundeName}
+                    <br /><span style={{ fontSize: '13px', color: '#a0aec0' }}>{new Date(order.bestelltAm).toLocaleString('de-DE')}</span>
                   </div>
-
-                  <button
-                    onClick={() => handlePrintOrder(order)}
-                    style={{ padding: '8px 12px', backgroundColor: '#4a5568', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    🖨️ Drucken
-                  </button>
-
-                  {activeTab === 'offen' ? (
-                    <button
-                      onClick={() => handleUpdateStatus(order.id, 'erledigt')}
-                      style={{ padding: '8px 16px', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      ✔ Erledigt
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>{Number(order.gesamtPreis).toFixed(2).replace('.', ',')} €</div>
+                    <button onClick={() => handlePrintOrder(order)} style={{ padding: '8px 12px', backgroundColor: '#4a5568', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>🖨️</button>
+                    <button onClick={() => handleUpdateStatus(order.id, activeTab === 'offen' ? 'erledigt' : 'offen')} style={{ padding: '8px 16px', backgroundColor: activeTab === 'offen' ? '#10b981' : '#3182ce', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      {activeTab === 'offen' ? '✔ Erledigt' : '↩ Reaktivieren'}
                     </button>
-                  ) : (
-                    <button
-                      onClick={() => handleUpdateStatus(order.id, 'offen')}
-                      style={{ padding: '8px 16px', backgroundColor: '#3182ce', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      ↩ Reaktivieren
-                    </button>
-                  )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1', minWidth: '200px' }}>
+                    <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Adresse</h4>
+                    <p style={{ margin: 0, fontSize: '14px' }}>{order.strasse} {order.hausnummer}<br />{order.plz} {order.stadt}<br />Tel: {order.telefon}</p>
+                  </div>
+                  <div style={{ flex: '2', minWidth: '300px' }}>
+                    <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Gerichte</h4>
+                    <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                      {order.positionen.map((pos) => (
+                        <li key={pos.id} style={{ marginBottom: '8px' }}>
+                          <strong>{pos.menge}x {pos.product?.name || `ID ${pos.produktId}`}</strong> ({Number(pos.preisSnapshot).toFixed(2)} €)
+                          {pos.anmerkung && <div style={{ fontSize: '13px', color: '#cbd5e0' }}>↳ "{pos.anmerkung}"</div>}
+                          {pos.zutatenText && <div style={{ fontSize: '13px', color: '#f6ad55' }}>{pos.zutatenText}</div>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+        )
+      )}
 
-              <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-                {/* Lieferadresse */}
-                <div style={{ flex: '1', minWidth: '200px' }}>
-                  <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Lieferadresse</h4>
-                  <p style={{ margin: 0, fontSize: '14px' }}>
-                    {order.strasse} {order.hausnummer}<br />
-                    {order.plz} {order.stadt}<br />
-                    Tel: {order.telefon}
-                    {order.email && <><br />E-Mail: {order.email}</>}
-                  </p>
-                  {order.lieferAnmerkung && (
-                    <div style={{ marginTop: '10px', padding: '8px', backgroundColor: '#1a202c', borderRadius: '4px', fontSize: '13px', borderLeft: '3px solid #f6ad55' }}>
-                      <strong>Anmerkung:</strong> {order.lieferAnmerkung}
+      {/* --- SPEISEKARTEN VERWALTUNG TAB --- */}
+      {activeTab === 'menu' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          
+          {/* Formular oben */}
+          <div style={{ backgroundColor: '#2d3748', padding: '20px', borderRadius: '8px', border: '1px solid #3182ce' }}>
+            <h3 style={{ color: '#3182ce', margin: '0 0 15px 0' }}>➕ Neues Gericht hinzufügen</h3>
+            <form onSubmit={handleAddProduct} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ flex: '1', minWidth: '150px' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px', color: '#a0aec0' }}>Kategorie</label>
+                <select 
+                  value={newProdKategorieId} 
+                  onChange={(e) => setNewProdKategorieId(Number(e.target.value))}
+                  style={{ width: '100%', backgroundColor: '#1a202c', color: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #4a5568' }}
+                >
+                  {kategorien.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: '2', minWidth: '180px' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px', color: '#a0aec0' }}>Name</label>
+                <input type="text" value={newProdName} onChange={(e) => setNewProdName(e.target.value)} placeholder="Pizza Tonno" style={{ width: '100%', backgroundColor: '#1a202c', color: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #4a5568' }} />
+              </div>
+              <div style={{ flex: '2', minWidth: '180px' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px', color: '#a0aec0' }}>Beschreibung</label>
+                <input type="text" value={newProdBeschreibung} onChange={(e) => setNewProdBeschreibung(e.target.value)} placeholder="mit Thunfisch" style={{ width: '100%', backgroundColor: '#1a202c', color: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #4a5568' }} />
+              </div>
+              <div style={{ flex: '1', minWidth: '80px' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px', color: '#a0aec0' }}>Preis (€)</label>
+                <input type="text" value={newProdPreis} onChange={(e) => setNewProdPreis(e.target.value)} placeholder="8.50" style={{ width: '100%', backgroundColor: '#1a202c', color: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #4a5568' }} />
+              </div>
+              <button type="submit" style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', height: '38px' }}>
+                Hinzufügen
+              </button>
+            </form>
+          </div>
+
+          {/* Liste aller Gerichte sortiert nach Kategorie */}
+          {kategorien.map((kat) => (
+            <div key={kat.id} style={{ backgroundColor: '#2d3748', padding: '20px', borderRadius: '8px' }}>
+              <h3 style={{ color: '#f6ad55', borderBottom: '2px solid #4a5568', paddingBottom: '5px', margin: '0 0 15px 0' }}>{kat.name}</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {kat.produkte.map((prod) => (
+                  <div 
+                    key={prod.id} 
+                    style={{ 
+                      backgroundColor: '#1a202c', 
+                      padding: '15px', 
+                      borderRadius: '6px', 
+                      opacity: prod.aktiv === false ? 0.6 : 1, 
+                      borderLeft: prod.aktiv === false ? '4px solid #ef4444' : '4px solid #10b981'
+                    }}
+                  >
+                    {/* Haupt-Produktzeile */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', gap: '15px', flex: '1', minWidth: '300px' }}>
+                        <input 
+                          type="text" 
+                          defaultValue={prod.name} 
+                          onBlur={(e) => handleUpdateProduct(prod.id, { name: e.target.value })}
+                          style={{ backgroundColor: '#2d3748', color: '#fff', border: '1px solid #4a5568', padding: '6px', borderRadius: '4px', fontWeight: 'bold', width: '150px' }}
+                        />
+                        <input 
+                          type="text" 
+                          defaultValue={prod.beschreibung || ''} 
+                          onBlur={(e) => handleUpdateProduct(prod.id, { beschreibung: e.target.value })}
+                          placeholder="Keine Beschreibung"
+                          style={{ backgroundColor: '#2d3748', color: '#fff', border: '1px solid #4a5568', padding: '6px', borderRadius: '4px', flex: '1' }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <button
+                          onClick={() => handleUpdateProduct(prod.id, { aktiv: !prod.aktiv })}
+                          style={{
+                            backgroundColor: prod.aktiv === false ? '#ef4444' : '#4a5568',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {prod.aktiv === false ? '🔴 Ausverkauft' : '🟢 Verfügbar'}
+                        </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <input 
+                            type="text" 
+                            defaultValue={Number(prod.preis).toFixed(2)} 
+                            onBlur={(e) => handleUpdateProduct(prod.id, { preis: parseFloat(e.target.value.replace(',', '.')) })}
+                            style={{ backgroundColor: '#2d3748', color: '#10b981', border: '1px solid #4a5568', padding: '6px', borderRadius: '4px', width: '70px', fontWeight: 'bold', textAlign: 'right' }}
+                          />
+                          <span style={{ color: '#10b981', fontWeight: 'bold' }}>€</span>
+                        </div>
+
+                        <button 
+                          onClick={() => handleDeleteProduct(prod.id)}
+                          style={{ backgroundColor: '#718096', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          🗑️ Löschen
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Gerichte */}
-                <div style={{ flex: '2', minWidth: '300px' }}>
-                  <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Positionen</h4>
-                  <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '15px' }}>
-                    {order.positionen.map((pos) => (
-                      <li key={pos.id} style={{ marginBottom: '12px', borderBottom: '1px dashed #4a5568', paddingBottom: '8px' }}>
-                        <strong style={{ fontSize: '16px', color: '#fff' }}>{pos.menge}x {pos.product?.name || `Produkt-ID ${pos.produktId}`}</strong> 
-                        <span style={{ color: '#a0aec0', fontSize: '14px', marginLeft: '10px' }}>
-                          (je {Number(pos.preisSnapshot).toFixed(2).replace('.', ',')} €)
-                        </span>
-                        
-                        {pos.anmerkung && (
-                          <div style={{ fontSize: '13px', color: '#cbd5e0', fontStyle: 'italic', marginTop: '2px' }}>
-                            ↳ Anmerkung Küche: "{pos.anmerkung}"
+                    {/* Integrierte Zutaten-Verwaltung direkt unter dem Gericht */}
+                    <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#2d3748', borderRadius: '6px' }}>
+                      <span style={{ fontSize: '12px', color: '#f6ad55', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>
+                        🌶️ Extras / Zutaten für dieses Gericht bearbeiten:
+                      </span>
+                      
+                      {/* Vorhandene Zutaten listen */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '12px' }}>
+                        {prod.zutaten && prod.zutaten.map((zutat) => (
+                          <div 
+                            key={zutat.id} 
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1a202c', padding: '4px 8px', borderRadius: '4px', border: '1px solid #4a5568' }}
+                          >
+                            <input 
+                              type="text"
+                              defaultValue={zutat.name}
+                              onBlur={(e) => handleUpdateZutat(zutat.id, { name: e.target.value })}
+                              style={{ backgroundColor: 'transparent', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 'bold', width: '100px' }}
+                            />
+                            <input 
+                              type="text"
+                              defaultValue={Number(zutat.aufpreis).toFixed(2)}
+                              onBlur={(e) => handleUpdateZutat(zutat.id, { aufpreis: parseFloat(e.target.value.replace(',', '.')) })}
+                              style={{ backgroundColor: '#2d3748', color: '#f6ad55', border: '1px solid #4a5568', borderRadius: '3px', fontSize: '12px', width: '50px', textAlign: 'right', padding: '2px' }}
+                            />
+                            <span style={{ color: '#f6ad55', fontSize: '12px', marginRight: '5px' }}>€</span>
+                            
+                            {/* Lösch-Button für Extras */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteZutat(zutat.id)}
+                              style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px', padding: '0 2px' }}
+                              title="Extra permanent löschen"
+                            >
+                              🗑️
+                            </button>
                           </div>
+                        ))}
+                        {(!prod.zutaten || prod.zutaten.length === 0) && (
+                          <span style={{ fontSize: '13px', color: '#a0aec0', fontStyle: 'italic' }}>Noch keine Extras für dieses Gericht.</span>
                         )}
-                        
-                        {pos.zutatenText && (
-                          <div style={{ fontSize: '13px', color: '#f6ad55', marginTop: '4px', fontWeight: '500' }}>
-                            {pos.zutatenText}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                      </div>
+
+                      {/* Formular zum NEUEN Hinzufügen einer Zutat */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderTop: '1px solid #4a5568', paddingTop: '10px' }}>
+                        <input 
+                          type="text" 
+                          placeholder="Zutat-Name (z.B. Extra Käse)" 
+                          value={newZutatNames[prod.id] || ''}
+                          onChange={(e) => setNewZutatNames(prev => ({ ...prev, [prod.id]: e.target.value }))}
+                          style={{ backgroundColor: '#1a202c', color: '#fff', border: '1px solid #4a5568', padding: '5px 10px', borderRadius: '4px', fontSize: '13px', flex: '1', maxWidth: '200px' }}
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="Aufpreis (z.B. 1.50)" 
+                          value={newZutatPrices[prod.id] || ''}
+                          onChange={(e) => setNewZutatPrices(prev => ({ ...prev, [prod.id]: e.target.value }))}
+                          style={{ backgroundColor: '#1a202c', color: '#f6ad55', border: '1px solid #4a5568', padding: '5px 10px', borderRadius: '4px', fontSize: '13px', width: '120px' }}
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => handleAddZutat(prod.id)}
+                          style={{ backgroundColor: '#3182ce', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                        >
+                          ➕ Extra hinzufügen
+                        </button>
+                      </div>
+
+                    </div>
+
+                  </div>
+                ))}
               </div>
             </div>
           ))}
+
         </div>
       )}
     </div>
