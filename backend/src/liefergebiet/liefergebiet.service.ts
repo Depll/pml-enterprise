@@ -14,6 +14,6 @@ export class LiefergebietService {
     const gebiet = await this.liefergebietRepository.findOne({
       where: { plz },
     });
-    return !!gebiet;
+    return !!gebiet; /* if (gebiet) {return true; }   return false; */
   }
 }

@@ -9,7 +9,7 @@ interface PlzModalProps {
 }
 
 // 1. HIER errorMessage aus den Props mit herausziehen:
-export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onClose, onSave, currentPlz, errorMessage }) => {
+export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, errorMessage }) => {
   const [inputValue, setInputValue] = useState<string>(currentPlz);
   const [errorMsg, setErrorMsg] = useState<string>('');
 

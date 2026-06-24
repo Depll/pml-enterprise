@@ -159,7 +159,7 @@ function App() {
       <CheckoutForm 
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
-        totalPrice={totalPrice}
+        totalPrice={totalPrice * 0.9}
         cartItems={cartItems}
         currentPlz={plz}
         onOrderSuccess={clearCart}

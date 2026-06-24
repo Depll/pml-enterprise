@@ -79,7 +79,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz })
                 <span className="pml-feature-icon">✅</span>
                 <div className="pml-feature-text">
                   <strong>Kostenlose Lieferung</strong>
-                  <span>ohne Mindestbestellwert</span>
+                  <span>ab 15€ Mindestbestellwert</span>
                 </div>
               </div>
               
