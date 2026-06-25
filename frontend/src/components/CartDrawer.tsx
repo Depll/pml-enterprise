@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenCheckout: () => void;
+  onOpenCheckout: (finalPrice: number) => void; // Erwartet jetzt den finalen Preis nach Rabatt
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenCheckout }) => {
@@ -129,7 +129,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
             <button 
               className="pml-btn-address-submit" 
               disabled={cart.length === 0 || istUnterMindestwert}
-              onClick={onOpenCheckout}
+              onClick={() => onOpenCheckout(endSumme)} // Reicht den rabattierten Endpreis weiter
               style={{
                 opacity: (cart.length === 0 || istUnterMindestwert) ? 0.5 : 1,
                 cursor: (cart.length === 0 || istUnterMindestwert) ? 'not-allowed' : 'pointer'

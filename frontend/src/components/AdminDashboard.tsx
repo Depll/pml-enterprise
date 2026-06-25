@@ -1,114 +1,148 @@
 import React, { useEffect, useState } from 'react';
 
+// ==========================================
+// TYPE DEFINITIONS & INTERFACES
+// ==========================================
+
 interface Zutat {
   id: number;
   name: string;
-  aufpreis: number;
+  price: number; 
 }
 
 interface Product {
   id: number;
+  sku: string;
   name: string;
-  beschreibung: string;
-  preis: number;
-  aktiv: boolean; 
-  zutaten?: Zutat[];
+  description: string; 
+  price: number;       
+  isActive: boolean;   
+  ingredients?: Zutat[]; 
 }
 
 interface Kategorie {
   id: number;
   name: string;
-  produkte: Product[];
+  products: Product[]; 
 }
 
 interface OrderPosition {
-  id: number;
-  name?: string; 
-  produktId: number;
-  menge: number;
-  preisSnapshot: number;
-  anmerkung: string | null;
-  gewaehlteZutatenIds: number[];
-  entfernteZutatenIds: number[];
-  zutatenText: string | null;
+  id: string; // Represented as UUID string in PostgreSQL
+  quantity: number;   
+  priceSnapshot: number;
+  selectedSize: string | null;
+  selectedOption: string | null;
+  comment: string | null; 
+  ingredientsText: string | null;  
+  selectedIngredientsIds: number[];
+  removedIngredientsIds: number[];  
   product?: {
     id: number;
     name: string;
-    beschreibung: string;
+    description: string; 
   };
+  productId: number;
 }
 
 interface Order {
-  id: number;
-  kundeName: string;
-  strasse: string;
-  hausnummer: string;
-  plz: string;
-  stadt: string;
-  telefon: string;
+  id: string; // Represented as UUID string in PostgreSQL
+  customerName: string; 
+  street: string;       
+  houseNumber: string;  
+  postcode: string;     
+  city: string;         
+  phone: string;        
   email: string | null;
-  lieferAnmerkung: string | null;
-  gesamtPreis: number;
-  status: string; 
-  stornoGrund: string | null; // NEU: Damit wir den Grund im Dashboard anzeigen können, falls storniert
-  bestelltAm: string;
-  positionen: OrderPosition[];
+  deliveryNote: string | null; 
+  totalPrice: number;   
+  status: string; // Matches database status values (e.g., 'open')
+  stornoReason: string | null; 
+  createdAt: string;    
+  positions: OrderPosition[];  
 }
 
 export const AdminDashboard: React.FC = () => {
+  // ==========================================
+  // STATE MANAGEMENT
+  // ==========================================
   const [orders, setOrders] = useState<Order[]>([]);
   const [kategorien, setKategorien] = useState<Kategorie[]>([]);
   const [, setLoading] = useState<boolean>(true);
   
-  // GEÄNDERT: activeTab unterstützt jetzt auch 'storniert'
-  const [activeTab, setActiveTab] = useState<'offen' | 'zubereitung' | 'erledigt' | 'storniert' | 'menu'>('offen');
+  // Tab states aligned with backend entity naming conventions
+  const [activeTab, setActiveTab] = useState<'open' | 'zubereitung' | 'erledigt' | 'storniert' | 'menu'>('open');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
 
+  // Form states for adding new products
   const [newProdName, setNewProdName] = useState('');
   const [newProdBeschreibung, setNewProdBeschreibung] = useState('');
   const [newProdPreis, setNewProdPreis] = useState('');
   const [newProdKategorieId, setNewProdKategorieId] = useState<number | ''>('');
 
+  // Dynamic tracking states for adding ingredients per product ID
   const [newZutatNames, setNewZutatNames] = useState<Record<number, string>>({});
   const [newZutatPrices, setNewZutatPrices] = useState<Record<number, string>>({});
 
+  // ==========================================
+  // API DATA FETCHING
+  // ==========================================
+
+  /**
+   * Fetches all orders from the NestJS backend and handles real-time audio notification flags.
+   */
   const fetchOrders = async () => {
     try {
       const response = await fetch('http://localhost:3000/orders');
       if (response.ok) {
         const data = await response.json();
-        const currentOffenCount = data.filter((o: Order) => o.status === 'offen').length;
+        // Fallback guarding to prevent React rendering crashes if data format shifts
+        const safeData = Array.isArray(data) ? data : [];
+        
+        const currentOffenCount = safeData.filter((o: Order) => o.status === 'open').length;
 
         setOrders((prevOrders) => {
-          const prevOffenCount = prevOrders.filter((o) => o.status === 'offen').length;
+          const prevOffenCount = prevOrders.filter((o) => o.status === 'open').length;
+          // Trigger audio if sound is active and a new incoming order hits 'open' state
           if (soundEnabled && prevOrders.length > 0 && currentOffenCount > prevOffenCount) {
             playNotificationSound();
           }
-          return data;
+          return safeData;
         });
       }
     } catch (error) {
-      console.error('Fehler beim Laden der Bestellungen:', error);
+      console.error('Failed fetching orders:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Fetches the menu taxonomy (Categories -> Products -> Ingredients) from the database.
+   */
   const fetchMenu = async () => {
     try {
       const response = await fetch('http://localhost:3000/menu');
       if (response.ok) {
         const data = await response.json();
-        setKategorien(data);
-        if (data.length > 0 && newProdKategorieId === '') {
-          setNewProdKategorieId(data[0].id);
+        const safeData = Array.isArray(data) ? data : [];
+        setKategorien(safeData);
+        // Pre-select the first available category inside the dropdown form
+        if (safeData.length > 0 && newProdKategorieId === '') {
+          setNewProdKategorieId(safeData[0].id);
         }
       }
     } catch (error) {
-      console.error('Fehler beim Laden der Speisekarte:', error);
+      console.error('Failed fetching menu structure:', error);
     }
   };
 
+  // ==========================================
+  // SYSTEM AUDIO & NOTIFICATIONS
+  // ==========================================
+
+  /**
+   * Programmatically generates a notification chime using the browser's native Web Audio API.
+   */
   const playNotificationSound = () => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -136,7 +170,7 @@ export const AdminDashboard: React.FC = () => {
         osc2.stop(audioCtx.currentTime + 0.2);
       }, 120);
     } catch (e) {
-      console.log('Audio fehlgeschlagen:', e);
+      console.warn('Audio contextual playback failed or blocked by browser policy:', e);
     }
   };
 
@@ -149,31 +183,46 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // GEÄNDERT: Unterstützt jetzt optional die Übergabe eines Stornogrundes
-  const handleUpdateStatus = async (orderId: number, newStatus: string, stornoGrund?: string) => {
+  // ==========================================
+  // ORDER MUTATION HANDLERS
+  // ==========================================
+
+  /**
+   * Updates an order workflow phase (e.g., transitions to 'zubereitung', 'erledigt').
+   */
+  const handleUpdateStatus = async (orderId: string, newStatus: string, cancellationReason?: string) => {
     try {
       const response = await fetch(`http://localhost:3000/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, stornoGrund: stornoGrund || undefined }),
+        body: JSON.stringify({ status: newStatus, stornoReason: cancellationReason || undefined }),
       });
       if (response.ok) fetchOrders();
     } catch (error) {
-      console.error('Verbindungsfehler:', error);
+      console.error('Network error during status transition:', error);
     }
   };
 
-  // NEU: Logik um den Grund abzufragen und das Storno einzuleiten
-  const handleCancelOrder = (orderId: number) => {
-    const grund = window.prompt('Bitte gib einen Grund für die Stornierung ein (wird dem Kunden angezeigt):');
-    if (grund === null) return; // Abgebrochen
+  /**
+   * Prompts user input for cancellation rationale before finalizing status mutation.
+   */
+  const handleCancelOrder = (orderId: string) => {
+    const grund = window.prompt('Please enter a cancellation reason (visible to the client):');
+    if (grund === null) return; 
     if (!grund.trim()) {
-      alert('Ein Stornogrund wird zwingend benötigt!');
+      alert('A valid reason is required to cancel an order!');
       return;
     }
     handleUpdateStatus(orderId, 'storniert', grund);
   };
 
+  // ==========================================
+  // MENU MUTATION HANDLERS
+  // ==========================================
+
+  /**
+   * Updates core properties of a menu item (e.g., description modifications or toggling availability).
+   */
   const handleUpdateProduct = async (id: number, updatedData: Partial<Product>) => {
     try {
       const response = await fetch(`http://localhost:3000/menu/${id}`, {
@@ -183,76 +232,86 @@ export const AdminDashboard: React.FC = () => {
       });
       if (response.ok) fetchMenu();
     } catch (error) {
-      console.error(error);
+      console.error('Failed mutating menu product entries:', error);
     }
   };
 
-  const handleUpdateZutat = async (id: number, updatedData: { name?: string; aufpreis?: number }) => {
+  /**
+   * Updates values for a sub-allocated recipe extra.
+   */
+  const handleUpdateZutat = async (id: number, updatedData: { name?: string; price?: number }) => {
     try {
-      const response = await fetch(`http://localhost:3000/menu/zutat/${id}`, {
+      const response = await fetch(`http://localhost:3000/menu/ingredient/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData),
       });
       if (response.ok) fetchMenu();
     } catch (error) {
-      console.error('Fehler beim Update der Zutat:', error);
+      console.error('Failed modifying target extra asset:', error);
     }
   };
 
-  const handleAddZutat = async (produktId: number) => {
-    const name = newZutatNames[produktId];
-    const preisStr = newZutatPrices[produktId] || '0.00';
+  /**
+   * Spawns a new ingredient option linked directly to a product entity ID.
+   */
+  const handleAddZutat = async (productId: number) => {
+    const name = newZutatNames[productId];
+    const preisStr = newZutatPrices[productId] || '0.00';
 
     if (!name) {
-      alert('Bitte gib einen Namen für das Extra ein!');
+      alert('Please fill out the name field for this extra option!');
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/menu/${produktId}/zutat`, {
+      const response = await fetch(`http://localhost:3000/menu/${productId}/ingredient`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name,
-          preis: parseFloat(preisStr.replace(',', '.'))
+          price: parseFloat(preisStr.replace(',', '.'))
         }),
       });
 
       if (response.ok) {
-        setNewZutatNames(prev => ({ ...prev, [produktId]: '' }));
-        setNewZutatPrices(prev => ({ ...prev, [produktId]: '' }));
+        setNewZutatNames(prev => ({ ...prev, [productId]: '' }));
+        setNewZutatPrices(prev => ({ ...prev, [productId]: '' }));
         fetchMenu();
       }
     } catch (error) {
-      console.error('Fehler beim Erstellen der Zutat:', error);
+      console.error('Failed appending new ingredient dependency:', error);
     }
   };
 
   const handleDeleteZutat = async (id: number) => {
-    if (!window.confirm('Möchtest du dieses Extra wirklich löschen?')) return;
+    if (!window.confirm('Are you sure you want to permanently delete this item extra?')) return;
     try {
-      const response = await fetch('http://localhost:3000/menu/zutat/' + id, {
+      const response = await fetch('http://localhost:3000/menu/ingredient/' + id, {
         method: 'DELETE',
       });
       if (response.ok) fetchMenu();
     } catch (error) {
-      console.error('Fehler beim Löschen:', error);
+      console.error('Deletion error on target extra asset:', error);
     }
   };
 
   const handleDeleteProduct = async (id: number) => {
-    if (!window.confirm('Möchtest du dieses Gericht wirklich von der Karte löschen?')) return;
+    if (!window.confirm('Are you sure you want to delete this dish from the menu layout?')) return;
     try {
       const response = await fetch('http://localhost:3000/menu/' + id, {
         method: 'DELETE',
       });
       if (response.ok) fetchMenu();
     } catch (error) {
-      console.error(error);
+      console.error('Deletion query failed on core product resource:', error);
     }
   };
 
+  /**
+   * Dispatches form fields to persist a new dish profile inside the database records.
+   * Leverages explicit structural validation parsing for backend data transfer objects (DTO).
+   */
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProdName || !newProdPreis || !newProdKategorieId) {
@@ -260,16 +319,19 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
 
+    const generatedSku = `PROD-${Date.now()}`;
+
     try {
       const response = await fetch('http://localhost:3000/menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sku: generatedSku,
           name: newProdName,
-          beschreibung: newProdBeschreibung,
-          preis: parseFloat(newProdPreis.replace(',', '.')),
-          kategorieId: Number(newProdKategorieId),
-          aktiv: true
+          description: newProdBeschreibung,
+          price: parseFloat(newProdPreis.replace(',', '.')),
+          categoryId: Number(newProdKategorieId),
+          isActive: true
         }),
       });
 
@@ -277,31 +339,55 @@ export const AdminDashboard: React.FC = () => {
         setNewProdName('');
         setNewProdBeschreibung('');
         setNewProdPreis('');
-        fetchMenu();
+        fetchMenu(); // Sync UI table layouts instantly
+      } else {
+        // Intercepts and maps explicit DTO/validation errors thrown by NestJS pipes
+        const errResult = await response.json();
+        alert(`Server-Fehler (400): ${JSON.stringify(errResult.message || errResult)}`);
       }
     } catch (error) {
       console.error(error);
     }
   };
 
+  // ==========================================
+  // HARDWARE PRINT RECEIPT ROUTINES
+  // ==========================================
+
+  /**
+   * Compiles data into an isolated virtual iframe sandbox layout to call the hardware thermal print spooler window.
+   */
   const handlePrintOrder = (order: Order) => {
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) return;
+    const oldFrame = document.getElementById('print-iframe-container');
+    if (oldFrame) oldFrame.remove();
 
-    const positionenHtml = order.positionen.map(pos => `
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-iframe-container';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) return;
+
+    const positionenHtml = order.positions?.map(pos => `
       <div style="border-bottom: 1px dashed #000; padding: 5px 0;">
-        <strong>${pos.menge}x ${pos.product?.name || `ID: ${pos.produktId}`}</strong>
-        ${pos.anmerkung ? `<br><span style="font-style:italic; font-size:12px;">↳ "${pos.anmerkung}"</span>` : ''}
-        ${pos.zutatenText ? `<br><span style="font-size:12px; font-weight:bold;">${pos.zutatenText}</span>` : ''}
+        <strong>${pos.quantity}x ${pos.product?.name || `ID: ${pos.productId}`}</strong>
+        ${pos.comment ? `<br><span style="font-style:italic; font-size:12px;">↳ "${pos.comment}"</span>` : ''}
+        ${pos.ingredientsText ? `<br><span style="font-size:12px; font-weight:bold;">${pos.ingredientsText}</span>` : ''}
       </div>
-    `).join('');
+    `).join('') || '';
 
-    printWindow.document.write(`
+    doc.write(`
       <html>
       <head>
         <title>Küchenbon #${order.id}</title>
         <style>
-          body { font-family: 'Courier New', Courier, monospace; width: 280px; margin: 10px; padding: 0; font-size: 14px; }
+          body { font-family: 'Courier New', Courier, monospace; width: 280px; margin: 10px; padding: 0; font-size: 14px; color: #000; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .hr { border-top: 1px solid #000; margin: 10px 0; }
@@ -311,48 +397,59 @@ export const AdminDashboard: React.FC = () => {
         <div class="center bold" style="font-size: 18px;">MILANO ENTERPRISE</div>
         <div class="center">KÜCHENZETTEL</div>
         <div class="hr"></div>
-        <div><strong>BESTELLUNG #${order.id}</strong></div>
-        <div>Datum: ${new Date(order.bestelltAm).toLocaleString('de-DE')}</div>
+        <div><strong>BESTELLUNG #${order.id.substring(0, 8)}</strong></div>
+        <div>Datum: ${new Date(order.createdAt).toLocaleString('de-DE')}</div>
         <div class="hr"></div>
-        <div><strong>Kunde:</strong> ${order.kundeName}</div>
-        <div><strong>Adresse:</strong><br>${order.strasse} ${order.hausnummer}<br>${order.plz} Leverkusen</div>
-        <div><strong>Tel:</strong> ${order.telefon}</div>
-        ${order.lieferAnmerkung ? `<div style="margin-top:5px; background:#eee; padding:3px;"><strong>Anmerkung:</strong> ${order.lieferAnmerkung}</div>` : ''}
+        <div><strong>Kunde:</strong> ${order.customerName}</div>
+        <div><strong>Adresse:</strong><br>${order.street} ${order.houseNumber}<br>${order.postcode} Leverkusen</div>
+        <div><strong>Tel:</strong> ${order.phone}</div>
+        ${order.deliveryNote ? `<div style="margin-top:5px; background:#eee; padding:3px;"><strong>Anmerkung:</strong> ${order.deliveryNote}</div>` : ''}
         <div class="hr"></div>
         <div class="bold">POSITIONEN:</div>
         ${positionenHtml}
         <div class="hr"></div>
-        <div class="bold" style="font-size: 16px; text-align: right;">GESAMT: ${Number(order.gesamtPreis).toFixed(2).replace('.', ',')} €</div>
-        <script>
-          window.onload = function() { window.print(); window.close(); }
-        </script>
+        <div class="bold" style="font-size: 16px; text-align: right;">GESAMT: ${Number(order.totalPrice).toFixed(2).replace('.', ',')} €</div>
       </body>
       </html>
     `);
-    printWindow.document.close();
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    }, 250);
   };
 
+  // ==========================================
+  // REAL-TIME POLLING LIFECYCLE HOOK
+  // ==========================================
   useEffect(() => {
     fetchOrders();
     fetchMenu();
+    // 5-second asynchronous polling layer to mirror real-time database updates
     const interval = setInterval(() => {
       fetchOrders();
     }, 5000); 
     return () => clearInterval(interval);
   }, [soundEnabled]);
 
-  // Statistik berechnet sich nur aus nicht-stornierten Bestellungen, um die Werte nicht zu verfälschen
+  // ==========================================
+  // ANALYTICS & STATISTICAL KPI CALCULATIONS
+  // ==========================================
   const activeOrdersOnly = orders.filter(o => o.status !== 'storniert');
-  const totalUmsatz = activeOrdersOnly.reduce((sum, o) => sum + Number(o.gesamtPreis), 0);
-  const totalGerichte = activeOrdersOnly.reduce((sum, o) => sum + o.positionen.reduce((pSum, p) => pSum + p.menge, 0), 0);
+  const totalUmsatz = activeOrdersOnly.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+  const totalGerichte = activeOrdersOnly.reduce((sum, o) => sum + (o.positions?.reduce((pSum, p) => pSum + p.quantity, 0) || 0), 0);
   const avgBestellwert = activeOrdersOnly.length > 0 ? totalUmsatz / activeOrdersOnly.length : 0;
 
   const filteredOrders = orders.filter(o => o.status === activeTab);
 
+  // ==========================================
+  // RENDER INTERFACE UI
+  // ==========================================
   return (
     <div style={{ padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', color: '#fff', fontFamily: 'sans-serif' }}>
       
-      {/* Header */}
+      {/* Header Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>🍕 Milano Enterprise - Küchen-Dashboard</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -368,7 +465,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Leiste */}
+      {/* KPI Performance Bar */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', flexWrap: 'wrap' }}>
         <div style={{ flex: '1', minWidth: '200px', backgroundColor: '#2d3748', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
           <span style={{ fontSize: '13px', color: '#a0aec0' }}>Gesamtumsatz</span>
@@ -384,10 +481,10 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* GEÄNDERT: Neuer Reiter für Stornierte Bestellungen */}
+      {/* Tab Controls Navigation */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #2d3748', paddingBottom: '10px' }}>
-        <button onClick={() => setActiveTab('offen')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'offen' ? '#ef4444' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-          Neue Bestellungen ({orders.filter(o => o.status === 'offen').length})
+        <button onClick={() => setActiveTab('open')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'open' ? '#ef4444' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          Neue Bestellungen ({orders.filter(o => o.status === 'open').length})
         </button>
         <button onClick={() => setActiveTab('zubereitung')} style={{ padding: '10px 20px', backgroundColor: activeTab === 'zubereitung' ? '#f6ad55' : '#2d3748', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           ⏳ In Zubereitung ({orders.filter(o => o.status === 'zubereitung').length})
@@ -403,7 +500,7 @@ export const AdminDashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* --- BESTELLUNGEN TABS --- */}
+      {/* --- WORKFLOW ORDERS TAB SECTION --- */}
       {activeTab !== 'menu' && (
         filteredOrders.length === 0 ? (
           <p style={{ color: '#a0aec0', fontSize: '16px' }}>Keine Bestellungen in dieser Kategorie. 🎉</p>
@@ -413,15 +510,14 @@ export const AdminDashboard: React.FC = () => {
               <div key={order.id} style={{ border: '1px solid #2d3748', borderRadius: '8px', padding: '20px', backgroundColor: '#2d3748' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #4a5568', paddingBottom: '10px', marginBottom: '10px' }}>
                   <div>
-                    <strong style={{ fontSize: '18px' }}>Bestellung #{order.id}</strong> - {order.kundeName}
-                    <br /><span style={{ fontSize: '13px', color: '#a0aec0' }}>{new Date(order.bestelltAm).toLocaleString('de-DE')}</span>
+                    <strong style={{ fontSize: '18px' }}>Bestellung #{order.id.substring(0, 8)}</strong> - {order.customerName}
+                    <br /><span style={{ fontSize: '13px', color: '#a0aec0' }}>{new Date(order.createdAt).toLocaleString('de-DE')}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>{Number(order.gesamtPreis).toFixed(2).replace('.', ',')} €</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>{Number(order.totalPrice).toFixed(2).replace('.', ',')} €</div>
                     <button onClick={() => handlePrintOrder(order)} style={{ padding: '8px 12px', backgroundColor: '#4a5568', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>🖨️</button>
                     
-                    {/* Aktions-Buttons */}
-                    {order.status === 'offen' && (
+                    {order.status === 'open' && (
                       <>
                         <button onClick={() => handleUpdateStatus(order.id, 'zubereitung')} style={{ padding: '8px 16px', backgroundColor: '#f6ad55', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                           👨‍🍳 In den Ofen
@@ -451,24 +547,23 @@ export const AdminDashboard: React.FC = () => {
                 <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1', minWidth: '200px' }}>
                     <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Adresse</h4>
-                    <p style={{ margin: 0, fontSize: '14px' }}>{order.strasse} {order.hausnummer}<br />{order.plz} {order.stadt}<br />Tel: {order.telefon}</p>
+                    <p style={{ margin: 0, fontSize: '14px' }}>{order.street} {order.houseNumber}<br />{order.postcode} {order.city}<br />Tel: {order.phone}</p>
                     
-                    {/* NEU: Stornogrund anzeigen, wenn vorhanden */}
-                    {order.stornoGrund && (
+                    {order.stornoReason && (
                       <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#742a2a', borderLeft: '4px solid #e53e3e', borderRadius: '4px' }}>
                         <strong style={{ fontSize: '13px', color: '#feb2b2' }}>Stornogrund:</strong>
-                        <p style={{ margin: '3px 0 0 0', fontSize: '13px', color: '#fff' }}>"{order.stornoGrund}"</p>
+                        <p style={{ margin: '3px 0 0 0', fontSize: '13px', color: '#fff' }}>"{order.stornoReason}"</p>
                       </div>
                     )}
                   </div>
                   <div style={{ flex: '2', minWidth: '300px' }}>
                     <h4 style={{ margin: '0 0 5px 0', color: '#f6ad55' }}>Gerichte</h4>
                     <ul style={{ paddingLeft: '20px', margin: 0 }}>
-                      {order.positionen.map((pos) => (
-                        <li key={pos.id} style={{ marginBottom: '8px' }}>
-                          <strong>{pos.menge}x {pos.product?.name || `ID ${pos.produktId}`}</strong> ({Number(pos.preisSnapshot).toFixed(2)} €)
-                          {pos.anmerkung && <div style={{ fontSize: '13px', color: '#cbd5e0' }}>↳ "{pos.anmerkung}"</div>}
-                          {pos.zutatenText && <div style={{ fontSize: '13px', color: '#f6ad55' }}>{pos.zutatenText}</div>}
+                      {order.positions?.map((pos) => (
+                        <li key={pos.id} style={{ margin: '0 0 8px 0' }}>
+                          <strong>{pos.quantity}x {pos.product?.name || `ID ${pos.productId}`}</strong> ({Number(pos.priceSnapshot).toFixed(2)} €)
+                          {pos.comment && <div style={{ fontSize: '13px', color: '#cbd5e0' }}>↳ "{pos.comment}"</div>}
+                          {pos.ingredientsText && <div style={{ fontSize: '13px', color: '#f6ad55' }}>{pos.ingredientsText}</div>}
                         </li>
                       ))}
                     </ul>
@@ -480,7 +575,7 @@ export const AdminDashboard: React.FC = () => {
         )
       )}
 
-      {/* --- SPEISEKARTEN VERWALTUNG TAB --- */}
+      {/* --- MENU MANAGEMENT TAB SECTION --- */}
       {activeTab === 'menu' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
           <div style={{ backgroundColor: '#2d3748', padding: '20px', borderRadius: '8px', border: '1px solid #3182ce' }}>
@@ -518,18 +613,18 @@ export const AdminDashboard: React.FC = () => {
             <div key={kat.id} style={{ backgroundColor: '#2d3748', padding: '20px', borderRadius: '8px' }}>
               <h3 style={{ color: '#f6ad55', borderBottom: '2px solid #4a5568', paddingBottom: '5px', margin: '0 0 15px 0' }}>{kat.name}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {kat.produkte.map((prod) => (
+                {kat.products?.map((prod) => (
                   <div 
                     key={prod.id} 
                     style={{ 
                       backgroundColor: '#1a202c', 
                       padding: '15px', 
                       borderRadius: '6px', 
-                      opacity: prod.aktiv === false ? 0.6 : 1, 
-                      borderLeft: prod.aktiv === false ? '4px solid #ef4444' : '4px solid #10b981'
+                      opacity: prod.isActive === false ? 0.6 : 1, 
+                      borderLeft: prod.isActive === false ? '4px solid #ef4444' : '4px solid #10b981'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '10px' }}>
                       <div style={{ display: 'flex', gap: '15px', flex: '1', minWidth: '300px' }}>
                         <input 
                           type="text" 
@@ -539,8 +634,8 @@ export const AdminDashboard: React.FC = () => {
                         />
                         <input 
                           type="text" 
-                          defaultValue={prod.beschreibung || ''} 
-                          onBlur={(e) => handleUpdateProduct(prod.id, { beschreibung: e.target.value })}
+                          defaultValue={prod.description || ''} 
+                          onBlur={(e) => handleUpdateProduct(prod.id, { description: e.target.value })}
                           placeholder="Keine Beschreibung"
                           style={{ backgroundColor: '#2d3748', color: '#fff', border: '1px solid #4a5568', padding: '6px', borderRadius: '4px', flex: '1' }}
                         />
@@ -548,9 +643,9 @@ export const AdminDashboard: React.FC = () => {
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <button
-                          onClick={() => handleUpdateProduct(prod.id, { aktiv: !prod.aktiv })}
+                          onClick={() => handleUpdateProduct(prod.id, { isActive: !prod.isActive })}
                           style={{
-                            backgroundColor: prod.aktiv === false ? '#ef4444' : '#4a5568',
+                            backgroundColor: prod.isActive === false ? '#ef4444' : '#4a5568',
                             color: '#fff',
                             border: 'none',
                             padding: '6px 12px',
@@ -560,14 +655,14 @@ export const AdminDashboard: React.FC = () => {
                             fontWeight: 'bold'
                           }}
                         >
-                          {prod.aktiv === false ? '🔴 Ausverkauft' : '🟢 Verfügbar'}
+                          {prod.isActive === false ? '🔴 Ausverkauft' : '🟢 Verfügbar'}
                         </button>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <input 
                             type="text" 
-                            defaultValue={Number(prod.preis).toFixed(2)} 
-                            onBlur={(e) => handleUpdateProduct(prod.id, { preis: parseFloat(e.target.value.replace(',', '.')) })}
+                            defaultValue={Number(prod.price).toFixed(2)} 
+                            onBlur={(e) => handleUpdateProduct(prod.id, { price: parseFloat(e.target.value.replace(',', '.')) })}
                             style={{ backgroundColor: '#2d3748', color: '#10b981', border: '1px solid #4a5568', padding: '6px', borderRadius: '4px', width: '70px', fontWeight: 'bold', textAlign: 'right' }}
                           />
                           <span style={{ color: '#10b981', fontWeight: 'bold' }}>€</span>
@@ -588,7 +683,7 @@ export const AdminDashboard: React.FC = () => {
                       </span>
                       
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '12px' }}>
-                        {prod.zutaten && prod.zutaten.map((zutat) => (
+                        {prod.ingredients?.map((zutat) => (
                           <div 
                             key={zutat.id} 
                             style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1a202c', padding: '4px 8px', borderRadius: '4px', border: '1px solid #4a5568' }}
@@ -601,8 +696,8 @@ export const AdminDashboard: React.FC = () => {
                             />
                             <input 
                               type="text"
-                              defaultValue={Number(zutat.aufpreis).toFixed(2)}
-                              onBlur={(e) => handleUpdateZutat(zutat.id, { aufpreis: parseFloat(e.target.value.replace(',', '.')) })}
+                              defaultValue={Number(zutat.price).toFixed(2)}
+                              onBlur={(e) => handleUpdateZutat(zutat.id, { price: parseFloat(e.target.value.replace(',', '.')) })}
                               style={{ backgroundColor: '#2d3748', color: '#f6ad55', border: '1px solid #4a5568', borderRadius: '3px', fontSize: '12px', width: '50px', textAlign: 'right', padding: '2px' }}
                             />
                             <span style={{ color: '#f6ad55', fontSize: '12px', marginRight: '5px' }}>€</span>
@@ -616,35 +711,37 @@ export const AdminDashboard: React.FC = () => {
                             </button>
                           </div>
                         ))}
-                        {(!prod.zutaten || prod.zutaten.length === 0) && (
+                        {(!prod.ingredients || prod.ingredients.length === 0) && (
                           <span style={{ fontSize: '13px', color: '#a0aec0', fontStyle: 'italic' }}>Noch keine Extras für dieses Gericht.</span>
                         )}
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderTop: '1px solid #4a5568', paddingTop: '10px' }}>
-                        <input 
-                          type="text" 
-                          placeholder="Zutat-Name (z.B. Extra Käse)" 
+                      
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px', maxWidth: '400px' }}>
+                        <input
+                          type="text"
+                          placeholder="Zutat-Name (z.B. Extra Käse)"
                           value={newZutatNames[prod.id] || ''}
                           onChange={(e) => setNewZutatNames(prev => ({ ...prev, [prod.id]: e.target.value }))}
-                          style={{ backgroundColor: '#1a202c', color: '#fff', border: '1px solid #4a5568', padding: '5px 10px', borderRadius: '4px', fontSize: '13px', flex: '1', maxWidth: '200px' }}
+                          style={{ backgroundColor: '#1a202c', color: '#fff', border: '1px solid #4a5568', padding: '5px', borderRadius: '4px', fontSize: '13px', flex: '2' }}
                         />
-                        <input 
-                          type="text" 
-                          placeholder="Aufpreis (z.B. 1.50)" 
+                        <input
+                          type="text"
+                          placeholder="Aufpreis (z.B. 1.50)"
                           value={newZutatPrices[prod.id] || ''}
                           onChange={(e) => setNewZutatPrices(prev => ({ ...prev, [prod.id]: e.target.value }))}
-                          style={{ backgroundColor: '#1a202c', color: '#f6ad55', border: '1px solid #4a5568', padding: '5px 10px', borderRadius: '4px', fontSize: '13px', width: '120px' }}
+                          style={{ backgroundColor: '#1a202c', color: '#fff', border: '1px solid #4a5568', padding: '5px', borderRadius: '4px', fontSize: '13px', flex: '1', width: '60px' }}
                         />
-                        <button 
+                        <button
                           type="button"
                           onClick={() => handleAddZutat(prod.id)}
-                          style={{ backgroundColor: '#3182ce', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                          style={{ backgroundColor: '#3182ce', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold' }}
                         >
                           ➕ Extra hinzufügen
                         </button>
                       </div>
+
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -652,6 +749,7 @@ export const AdminDashboard: React.FC = () => {
           ))}
         </div>
       )}
+
     </div>
   );
 };

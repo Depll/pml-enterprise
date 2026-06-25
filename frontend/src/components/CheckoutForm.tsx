@@ -54,31 +54,38 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     e.preventDefault();
     if (!validateForm()) return;
 
-    const payload = {
-      kundeName: formData.name,
-      strasse: formData.strasse,
-      hausnummer: formData.hausnummer,
-      plz: currentPlz,
-      stadt: 'Leverkusen',
-      telefon: formData.telefon,
-      email: formData.email || null,
-      lieferAnmerkung: formData.anmerkung || null,
-      gesamtPreis: totalPrice,
-      positionen: cartItems.map((item) => {
-        const extrasText = (item.gewaehlteZutaten || []).map((z: any) => `+ ${z.name}`).join(', ');
-        const entfernteText = (item.entfernteZutaten || []).map((z: any) => `- Ohne ${z.name}`).join(', ');
-        const zutatenKombi = [extrasText, entfernteText].filter(Boolean).join(', ');
+    // Positionen mappen: productId als Zahl senden & priceSnapshot hinzufügen
+    const mappedPositions = cartItems.map((item) => {
+      const activeExtras = item.gewaehlteZutaten || [];
+      const activeRemoved = item.entfernteZutaten || [];
 
-        return {
-          produktId: item.id,
-          menge: item.menge,
-          preisSnapshot: item.preis,
-          anmerkung: item.anmerkung || null,
-          gewaehlteZutatenIds: (item.gewaehlteZutaten || []).map((z: any) => z.id),
-          entfernteZutatenIds: (item.entfernteZutaten || []).map((z: any) => z.id),
-          zutatenText: zutatenKombi || null,
-        };
-      })
+      return {
+        productId: Number(item.id), 
+        quantity: Number(item.menge || 1), 
+        priceSnapshot: Number(item.preis || item.price || 0), 
+        comment: item.anmerkung?.trim() || undefined, 
+        selectedSize: undefined, 
+        selectedOption: undefined,
+        selectedIngredientsIds: activeExtras.length > 0 
+          ? activeExtras.map((z: any) => Number(z.id)) 
+          : undefined,
+        removedIngredientsIds: activeRemoved.length > 0 
+          ? activeRemoved.map((z: any) => Number(z.id)) 
+          : undefined,
+      };
+    });
+
+    const payload = {
+      customerName: formData.name,
+      street: formData.strasse,
+      houseNumber: formData.hausnummer,
+      postcode: String(currentPlz).trim(), 
+      city: 'Leverkusen',
+      phone: formData.telefon,
+      email: formData.email?.trim() || undefined, 
+      deliveryNote: formData.anmerkung?.trim() || undefined,
+      totalPrice: Number(totalPrice), 
+      positions: mappedPositions 
     };
 
     try {
@@ -91,19 +98,19 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       });
 
       if (response.ok) {
-        // GEÄNDERT: Die Antwort vom NestJS-Backend parsen, um die ID zu bekommen
         const neueBestellung = await response.json();
         
         alert('Bestellung erfolgreich abgeschickt!');
-        onOrderSuccess(); // Leert den Warenkorb
-        onClose();        // Schließt das Formular
+        onOrderSuccess(); 
+        onClose();        
 
         localStorage.setItem('milano_last_order_id', neueBestellung.id.toString());
         
-        // GEÄNDERT: Den Nutzer automatisch auf die Tracking-Seite schicken
         window.location.href = `http://localhost:5173/?id=${neueBestellung.id}`;
       } else {
-        alert('Fehler beim Senden der Bestellung. Bitte versuche es erneut.');
+        const errorData = await response.json().catch(() => ({}));
+        console.error("NestJS Validierungsfehler:", errorData);
+        alert(`Fehler beim Senden: ${Array.isArray(errorData.message) ? errorData.message.join(', ') : (errorData.message || 'Bitte Eingaben prüfen!')}`);
       }
     } catch (error) {
       console.error('Verbindungsfehler zum Backend:', error);

@@ -7,20 +7,12 @@ import {
   Body,
   Param,
 } from '@nestjs/common';
-import { MenuService, CreateProductDto, UpdateZutatDto } from './menu.service';
-import { IsString, IsNumber, Min, Length } from 'class-validator';
-
-export class AddZutatInput {
-  @IsString({ message: 'Der Name der Zutat muss ein Text sein.' })
-  @Length(2, 50, {
-    message: 'Der Name muss zwischen 2 und 50 Zeichen lang sein.',
-  })
-  name: string;
-
-  @IsNumber({}, { message: 'Der Preis muss eine Zahl sein.' })
-  @Min(0, { message: 'Der Preis darf nicht negativ sein.' })
-  preis: number;
-}
+import { MenuService } from './menu.service';
+import {
+  CreateProductDto,
+  AddIngredientInputDto,
+  UpdateIngredientDto,
+} from './dto/menu.dto';
 
 @Controller('menu')
 export class MenuController {
@@ -28,28 +20,28 @@ export class MenuController {
 
   @Get()
   async getMenu() {
-    return this.menuService.getSpeisekarte();
+    return this.menuService.getMenu();
   }
 
   @Post()
   async addProduct(@Body() productData: CreateProductDto) {
-    return this.menuService.addGericht(productData);
+    return this.menuService.addProduct(productData);
   }
 
-  @Post(':id/zutat')
-  async addZutat(
-    @Param('id') produktId: number,
-    @Body() zutatData: AddZutatInput,
+  @Post(':id/ingredient')
+  async addIngredient(
+    @Param('id') productId: number,
+    @Body() ingredientData: AddIngredientInputDto,
   ) {
-    return this.menuService.addZutat(Number(produktId), zutatData);
+    return this.menuService.addIngredient(productId, ingredientData);
   }
 
-  @Patch('zutat/:id')
-  async updateZutat(
+  @Patch('ingredient/:id')
+  async updateIngredient(
     @Param('id') id: number,
-    @Body() zutatData: UpdateZutatDto,
+    @Body() ingredientData: UpdateIngredientDto,
   ) {
-    return this.menuService.updateZutat(Number(id), zutatData);
+    return this.menuService.updateIngredient(Number(id), ingredientData);
   }
 
   @Patch(':id')
@@ -57,16 +49,17 @@ export class MenuController {
     @Param('id') id: number,
     @Body() productData: Partial<CreateProductDto>,
   ) {
-    return this.menuService.updateGericht(Number(id), productData);
+    return this.menuService.updateProduct(id, productData);
   }
 
   @Delete(':id')
   async deleteProduct(@Param('id') id: number) {
-    return this.menuService.deleteGericht(Number(id));
+    return this.menuService.deleteProduct(id);
   }
 
-  @Delete('zutat/:id')
-  async deleteZutat(@Param('id') id: number) {
-    return this.menuService.deleteZutat(Number(id));
+  @Delete('ingredient/:id')
+  async deleteIngredient(@Param('id') id: string) {
+    // Wandelt den URL-String wieder in eine Zahl um, da Zutat-IDs Nummern sind
+    return this.menuService.deleteIngredient(Number(id));
   }
 }

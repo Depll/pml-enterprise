@@ -1,73 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { KategorieEntity } from '../database/entities/kategorie.entity';
-import { ProduktEntity } from '../database/entities/produkt.entity';
-import { ZutatEntity } from '../database/entities/zutat.entity';
+import { CategoryEntity } from '../database/entities/category.entity';
+import { ProductEntity } from '../database/entities/product.entity';
+import { IngredientEntity } from '../database/entities/ingredient.entity';
 import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsBoolean,
-  Min,
-  Length,
-} from 'class-validator';
-
-export class CreateProductDto {
-  @IsString({ message: 'Der Name muss ein Text sein.' })
-  @Length(2, 50, {
-    message: 'Der Name muss zwischen 2 und 50 Zeichen lang sein.',
-  })
-  name: string;
-
-  @IsOptional()
-  @IsString({ message: 'Die Beschreibung muss ein Text sein.' })
-  beschreibung?: string;
-
-  @IsNumber({}, { message: 'Der Preis muss eine Zahl sein.' })
-  @Min(0, { message: 'Der Preis darf nicht negativ sein.' })
-  preis: number;
-
-  @IsNumber({}, { message: 'Die Kategorie-ID muss eine Zahl sein.' })
-  kategorieId: number;
-
-  @IsOptional()
-  @IsBoolean({ message: 'Aktiv muss ein Boolean sein.' })
-  aktiv?: boolean;
-}
-
-export class UpdateZutatDto {
-  @IsOptional()
-  @IsString({ message: 'Der Name muss ein Text sein.' })
-  @Length(2, 50, {
-    message: 'Der Name muss zwischen 2 und 50 Zeichen lang sein.',
-  })
-  name?: string;
-
-  @IsOptional()
-  @IsNumber({}, { message: 'Der Aufpreis muss eine Zahl sein.' })
-  @Min(0, { message: 'Der Aufpreis darf nicht negativ sein.' })
-  aufpreis?: number;
-}
+  CreateProductDto,
+  UpdateIngredientDto,
+  AddIngredientInputDto,
+} from './dto/menu.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class MenuService {
+  // Initializing the system logger and definition for the storage stream
+  private readonly sysLogger = new Logger(MenuService.name);
+  private readonly logFilePath = path.join(process.cwd(), 'logging.txt');
+
   constructor(
-    @InjectRepository(KategorieEntity)
-    private readonly kategorieRepository: Repository<KategorieEntity>,
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepository: Repository<CategoryEntity>,
 
-    @InjectRepository(ProduktEntity)
-    private readonly produktRepository: Repository<ProduktEntity>,
+    @InjectRepository(ProductEntity)
+    private readonly productRepository: Repository<ProductEntity>,
 
-    @InjectRepository(ZutatEntity)
-    private readonly zutatRepository: Repository<ZutatEntity>,
+    @InjectRepository(IngredientEntity)
+    private readonly ingredientRepository: Repository<IngredientEntity>,
   ) {}
 
-  async getSpeisekarte() {
-    return await this.kategorieRepository.find({
+  async getMenu() {
+    return await this.categoryRepository.find({
       relations: {
-        produkte: {
-          zutaten: true,
+        products: {
+          ingredients: true,
         },
       },
       order: {
@@ -76,76 +42,113 @@ export class MenuService {
     });
   }
 
-  async addGericht(productData: CreateProductDto) {
-    const { kategorieId, ...restlicheDaten } = productData;
+  /**
+   * Persists a new product record inside the database layer and appends the transmission payload to logging.txt.
+   */
+  async addProduct(productData: CreateProductDto) {
+    // 1. Generate timestamp and append raw client payload asynchronously to the local log file
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] POST /menu - Payload Received: ${JSON.stringify(productData)}\n`;
 
-    const neuesProdukt = this.produktRepository.create({
+    fs.appendFile(this.logFilePath, logEntry, 'utf8', (err) => {
+      if (err) {
+        this.sysLogger.error(
+          'Failed appending transmission metadata stream to logging.txt',
+          err.stack,
+        );
+      } else {
+        this.sysLogger.log(
+          'Successfully written payload metadata intercept to tracking file.',
+        );
+      }
+    });
+
+    // 2. Original execution workflow for database mapping
+    const { categoryId, description, price, isActive, ...restlicheDaten } =
+      productData;
+
+    const newProduct = this.productRepository.create({
       ...restlicheDaten,
-      kategorie: { id: Number(kategorieId) } as KategorieEntity,
+      description,
+      price,
+      isActive: isActive ?? true,
+      category: { id: Number(categoryId) } as CategoryEntity,
     });
 
-    return await this.produktRepository.save(neuesProdukt);
+    return await this.productRepository.save(newProduct);
   }
 
-  async updateGericht(id: number, productData: Partial<CreateProductDto>) {
-    const produkt = await this.produktRepository.findOne({ where: { id } });
-    if (!produkt) {
+  async updateProduct(id: number, productData: Partial<CreateProductDto>) {
+    const product = await this.productRepository.findOne({
+      where: { id: Number(id) },
+    });
+    if (!product) {
       throw new NotFoundException(`Gericht mit ID ${id} nicht gefunden`);
     }
 
-    const { kategorieId, ...restlicheDaten } = productData;
+    const { categoryId, description, price, isActive, ...restlicheDaten } =
+      productData;
 
-    if (kategorieId) {
-      produkt.kategorie = { id: Number(kategorieId) } as KategorieEntity;
+    if (categoryId) {
+      product.category = { id: Number(categoryId) } as CategoryEntity;
     }
 
-    Object.assign(produkt, restlicheDaten);
-    return await this.produktRepository.save(produkt);
+    if (description !== undefined) product.description = description;
+    if (price !== undefined) product.price = price;
+    if (isActive !== undefined) product.isActive = isActive;
+
+    Object.assign(product, restlicheDaten);
+    return await this.productRepository.save(product);
   }
 
-  async addZutat(
-    produktId: number,
-    zutatData: { name: string; preis: number },
+  async addIngredient(
+    productId: number,
+    ingredientData: AddIngredientInputDto,
   ) {
-    const produkt = await this.produktRepository.findOne({
-      where: { id: produktId },
+    const product = await this.productRepository.findOne({
+      where: { id: Number(productId) },
     });
-    if (!produkt) {
-      throw new NotFoundException(`Produkt mit ID ${produktId} nicht gefunden`);
+    if (!product) {
+      throw new NotFoundException(`Produkt mit ID ${productId} nicht gefunden`);
     }
 
-    // Korrektur: Nutzt 'aufpreis' und übergibt das Produkt in einem Array [produkt]
-    const neueZutat = this.zutatRepository.create({
-      name: zutatData.name,
-      aufpreis: Number(zutatData.preis),
-      produkte: [produkt],
+    const newIngredient = this.ingredientRepository.create({
+      name: ingredientData.name,
+      extraPrice: Number(ingredientData.price),
+      products: [product],
     });
 
-    return await this.zutatRepository.save(neueZutat);
+    return await this.ingredientRepository.save(newIngredient);
   }
 
-  async updateZutat(id: number, zutatData: UpdateZutatDto) {
-    const zutat = await this.zutatRepository.findOne({ where: { id } });
-    if (!zutat) {
+  async updateIngredient(id: number, ingredientData: UpdateIngredientDto) {
+    const ingredient = await this.ingredientRepository.findOne({
+      where: { id },
+    });
+    if (!ingredient) {
       throw new NotFoundException(`Zutat mit ID ${id} nicht gefunden`);
     }
-    Object.assign(zutat, zutatData);
-    return await this.zutatRepository.save(zutat);
+    Object.assign(ingredient, ingredientData);
+    return await this.ingredientRepository.save(ingredient);
   }
 
-  async deleteGericht(id: number) {
-    const produkt = await this.produktRepository.findOne({ where: { id } });
-    if (!produkt) {
+  async deleteProduct(id: number) {
+    const product = await this.productRepository.findOne({
+      where: { id: Number(id) },
+    });
+    if (!product) {
       throw new NotFoundException(`Gericht mit ID ${id} nicht gefunden`);
     }
-    return await this.produktRepository.remove(produkt);
+    return await this.productRepository.remove(product);
   }
 
-  async deleteZutat(id: number) {
-    const zutat = await this.zutatRepository.findOne({ where: { id } });
-    if (!zutat) {
+  async deleteIngredient(id: number) {
+    const ingredient = await this.ingredientRepository.findOne({
+      where: { id },
+    });
+    if (!ingredient) {
       throw new NotFoundException(`Zutat mit ID ${id} nicht gefunden`);
     }
-    return await this.zutatRepository.remove(zutat);
+    return await this.ingredientRepository.remove(ingredient);
   }
 }

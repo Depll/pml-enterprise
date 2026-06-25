@@ -3,15 +3,15 @@ import React, { useState, useEffect } from 'react';
 interface Zutat {
   id: number;
   name: string;
-  aufpreis: string | number;
+  extraPrice: string | number; // von 'aufpreis' zu 'extraPrice'
 }
 
 interface Product {
   id: number;
   name: string;
-  beschreibung: string;
-  preis: string | number;
-  zutaten: Zutat[]; // Kommt live aus pgAdmin (produkt_zutaten)
+  description: string; // von 'beschreibung' zu 'description'
+  price: string | number; // von 'preis' zu 'price'
+  ingredients: Zutat[]; // von 'zutaten' zu 'ingredients'
 }
 
 interface ZutatenModalProps {
@@ -41,27 +41,25 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
 
   if (!isOpen || !product) return null;
 
-  const basePrice = Number(product.preis);
-  const extrasPrice = selectedExtras.reduce((sum, zutat) => sum + Number(zutat.aufpreis), 0);
+  const basePrice = Number(product.price); // product.price statt product.preis
+  const extrasPrice = selectedExtras.reduce((sum, zutat) => sum + Number(zutat.extraPrice), 0); // zutat.extraPrice statt zutat.aufpreis
   const currentTotalPrice = basePrice + extrasPrice;
 
-  // NEU & DYNAMISCH: Extrahiert die Standard-Zutaten direkt aus der "beschreibung" in pgAdmin
+  // Extrahiert die Standard-Zutaten direkt aus der englischen "description"
   const getStandardZutaten = () => {
-    if (!product.beschreibung || product.beschreibung.trim() === '') return [];
+    if (!product.description || product.description.trim() === '') return []; // product.description statt product.beschreibung
     
-    // Entfernt "mit ", "frische ", "italienischer " etc. für saubere Buttons
-    const saubererText = product.beschreibung
+    const saubererText = product.description
       .replace(/^[mM]it\s+/, '')
       .replace(/^[fF]rische\s+/, '');
       
-    // Splittet den Text bei jedem Komma oder "und" auf
     const teile = saubererText.split(/,|\bund\b/).map(z => z.trim());
     
     return teile
       .filter(z => z.length > 0 && !z.toLowerCase().includes('klassiker') && !z.toLowerCase().includes('pfand'))
       .map((name, index) => ({
-        id: 9000 + index, // Eindeutige temporäre ID
-        name: name.charAt(0).toUpperCase() + name.slice(1) // Erster Buchstabe groß
+        id: 9000 + index,
+        name: name.charAt(0).toUpperCase() + name.slice(1)
       }));
   };
 
@@ -86,7 +84,8 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
         <div className="pml-cart-header">
           <div>
             <h2 style={{ margin: 0 }}>{product.name} anpassen</h2>
-            <p style={{ fontSize: '14px', color: '#718096', margin: '4px 0 0 0' }}>{product.beschreibung}</p>
+            {/* product.description statt product.beschreibung */}
+            <p style={{ fontSize: '14px', color: '#718096', margin: '4px 0 0 0' }}>{product.description}</p>
           </div>
           <span className="pml-close-cart-btn" onClick={onClose}>&times;</span>
         </div>
@@ -125,9 +124,10 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
 
           {/* SEKTION 2: EXTRAS HINZUFÜGEN */}
           <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#319795' }}>Extra Zutaten hinzufügen:</h3>
-          {product.zutaten && product.zutaten.length > 0 ? (
+          {/* product.ingredients statt product.zutaten */}
+          {product.ingredients && product.ingredients.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {product.zutaten.map((zutat) => {
+              {product.ingredients.map((zutat) => {
                 const isChecked = selectedExtras.some((z) => z.id === zutat.id);
                 return (
                   <label key={zutat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: isChecked ? '#e6fffa' : 'transparent' }}>
@@ -135,13 +135,14 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
                       <input type="checkbox" checked={isChecked} onChange={() => handleToggleExtra(zutat)} style={{ width: '16px', height: '16px' }} />
                       <span style={{ fontWeight: 500 }}>{zutat.name}</span>
                     </div>
-                    <span style={{ color: '#4a5568', fontSize: '14px' }}>+ {Number(zutat.aufpreis).toFixed(2).replace('.', ',')} €</span>
+                    {/* zutat.extraPrice statt zutat.aufpreis */}
+                    <span style={{ color: '#4a5568', fontSize: '14px' }}>+ {Number(zutat.extraPrice).toFixed(2).replace('.', ',')} €</span>
                   </label>
                 );
               })}
             </div>
           ) : (
-            <p style={{ color: '#a0aec0', fontSize: '13px' }}>Füge für dieses Produkt in pgAdmin Verknüpfungen in <i>produkt_zutaten</i> hinzu, um Extras zu sehen.</p>
+            <p style={{ color: '#a0aec0', fontSize: '13px' }}>Füge für dieses Produkt in pgAdmin Verknüpfungen in <i>ingredient</i> hinzu, um Extras zu sehen.</p>
           )}
 
           {/* SEKTION 3: TEXTANMERKUNG */}
@@ -162,7 +163,14 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             <span>Preis gesamt:</span>
             <span className="pml-total-price-badge">{currentTotalPrice.toFixed(2).replace('.', ',')} €</span>
           </div>
-          <button className="pml-btn-address-submit" onClick={() => { onConfirm({ id: product.id, name: product.name, preis: basePrice }, selectedExtras, removedZutaten, anmerkung); onClose(); }} style={{ width: '100%' }}>
+          <button 
+            className="pml-btn-address-submit" 
+            onClick={() => { 
+              onConfirm({ id: product.id, name: product.name, preis: basePrice }, selectedExtras, removedZutaten, anmerkung); 
+              onClose(); 
+            }} 
+            style={{ width: '100%' }}
+          >
             In den Warenkorb
           </button>
         </div>

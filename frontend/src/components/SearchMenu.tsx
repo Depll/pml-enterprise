@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-// Interface angepasst: categories wurde hier heraugelöscht
 interface SearchMenuProps {
   activeCategory: string;
   onCategoryChange: (category: string) => void;
@@ -20,18 +19,18 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
 }) => {
   const [dynamicCategories, setDynamicCategories] = useState<BackendKategorie[]>([]);
 
-  // Hol die echten Kategorien live aus deinem NestJS-Backend
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const response = await fetch('http://localhost:3000/menu'); 
         if (response.ok) {
           const data = await response.json();
-          // Wir holen uns ID, Name und Label aus den geladenen Kategorien
+          
+          // Fallback eingebaut: Falls "label" im Backend fehlt, nutzen wir einfach "name"
           const kats = data.map((item: any) => ({
             id: item.id,
             name: item.name,
-            label: item.label,
+            label: item.label || item.name, 
           }));
           setDynamicCategories(kats);
         }
@@ -75,7 +74,8 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
                 className={`pml-category-item ${activeCategory.toLowerCase() === cat.name.toLowerCase() ? 'pml-active' : ''}`}
                 onClick={() => onCategoryChange(cat.name)}
               >
-                {cat.label}
+                {/* Zeigt das Label schön formatiert an */}
+                {cat.label.charAt(0).toUpperCase() + cat.label.slice(1)}
               </span>
             ))}
           </div>

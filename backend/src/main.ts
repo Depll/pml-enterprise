@@ -1,7 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { SeedService } from './database/seeds/seed.service';
+// import { SeedService } from './database/seeds/seed.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,11 +16,12 @@ async function bootstrap() {
   );
 
   // --- SEEDER START ---
-  const seedService = app.get(SeedService);
-  await seedService.runSeed();
+  //const seedService = app.get(SeedService);
+  // await seedService.runSeed();
   // --------------------
 
   await app.listen(3000);
+  console.log('Application is running on: http://localhost:3000');
 }
 bootstrap().catch((err) => {
   console.error('Fehler beim Starten der App:', err);

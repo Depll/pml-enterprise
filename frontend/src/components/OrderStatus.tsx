@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
 interface Order {
-  id: number;
-  kundeName: string;
+  id: string | number; // Unterstützt nun sowohl Number- als auch UUID-Strings aus dem Backend
+  customerName: string; // von kundeName zu customerName
   status: string;
-  stornoGrund?: string | null; // NEU: Stornogrund vom Backend empfangen
-  gesamtPreis: number;
-  bestelltAm: string; 
+  cancellationReason?: string | null; // von stornoGrund zu cancellationReason
+  totalPrice: number; // von gesamtPreis zu totalPrice
+  createdAt: string; // von bestelltAm zu createdAt
 }
 
 export const OrderStatus: React.FC = () => {
@@ -29,12 +29,15 @@ export const OrderStatus: React.FC = () => {
       const response = await fetch('http://localhost:3000/orders');
       if (response.ok) {
         const orders: Order[] = await response.json();
-        const foundOrder = orders.find(o => o.id === Number(orderId));
+        
+        // Da die ID im Backend je nach Entity-Definition ein String (UUID) oder Number sein kann,
+        // vergleichen wir flexibel mittels String-Konvertierung.
+        const foundOrder = orders.find(o => String(o.id) === String(orderId));
         
         if (foundOrder) {
           setOrder(foundOrder);
           setError(null);
-          calculateTimeLeft(foundOrder.bestelltAm, foundOrder.status);
+          calculateTimeLeft(foundOrder.createdAt, foundOrder.status);
         } else {
           setError('Bestellung nicht gefunden.');
         }
@@ -46,28 +49,27 @@ export const OrderStatus: React.FC = () => {
     }
   };
 
-  // Berechnet die verbleibende Lieferzeit (30 Min Lieferzeit standardmäßig)
-  const calculateTimeLeft = (bestelltAmStr: string, status: string) => {
-    // NEU: Wenn storniert, gibt es keine verbleibende Lieferzeit
-    if (status === 'storniert') {
+  // Berechnet die verbleibende Lieferzeit
+  const calculateTimeLeft = (createdAtStr: string, status: string) => {
+    if (status === 'storniert' || status === 'cancelled') {
       setTimeLeft('Abgebrochen 🛑');
       return;
     }
 
-    if (status === 'erledigt') {
+    if (status === 'erledigt' || status === 'done' || status === 'completed') {
       setTimeLeft('Geliefert! 🎉');
       return;
     }
 
-    const bestellZeit = new Date(bestelltAmStr).getTime();
+    const bestellZeit = new Date(createdAtStr).getTime();
     const lieferZeit = bestellZeit + 30 * 60 * 1000; 
     const jetzt = new Date().getTime();
     const differenz = lieferZeit - jetzt;
 
     if (differenz <= 0) {
-      if (status === 'offen') {
+      if (status === 'offen' || status === 'open') {
         setTimeLeft('Wird gleich vorbereitet... 🍕');
-      } else if (status === 'zubereitung') {
+      } else if (status === 'zubereitung' || status === 'cooking') {
         setTimeLeft('Frisch im Ofen! 🔥');
       } else {
         setTimeLeft('Gleich bei dir! 🚀');
@@ -90,7 +92,7 @@ export const OrderStatus: React.FC = () => {
   useEffect(() => {
     if (!order) return;
     const timeInterval = setInterval(() => {
-      calculateTimeLeft(order.bestelltAm, order.status);
+      calculateTimeLeft(order.createdAt, order.status);
     }, 10000);
     return () => clearInterval(timeInterval);
   }, [order]);
@@ -99,8 +101,7 @@ export const OrderStatus: React.FC = () => {
   if (error || !order) return <div style={{ color: '#ef4444', padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh' }}>❌ {error || 'Fehler'}</div>;
 
   const getStepStyle = (currentStatus: string, targetStatus: string[], activeColor: string) => {
-    // Wenn storniert ist, grauen wir die Standardbalken aus
-    const isCancelled = currentStatus === 'storniert';
+    const isCancelled = currentStatus === 'storniert' || currentStatus === 'cancelled';
     const isActive = !isCancelled && targetStatus.includes(currentStatus);
     
     return {
@@ -117,33 +118,36 @@ export const OrderStatus: React.FC = () => {
     };
   };
 
+  // Hilfsvariable zur Statusüberprüfung (unterstützt Deutsch und Englisch aus der DB)
+  const isStatusCancelled = order.status === 'storniert' || order.status === 'cancelled';
+
   return (
     <div style={{ padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', color: '#fff', fontFamily: 'sans-serif', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ backgroundColor: '#2d3748', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '600px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
         
         <h2 style={{ textAlign: 'center', margin: '0 0 10px 0', color: '#f6ad55' }}>🍕 Milano Enterprise Live-Tracker</h2>
-        <p style={{ textAlign: 'center', color: '#a0aec0', marginBottom: '30px' }}>Hallo <strong>{order.kundeName}</strong>, hier kannst du deine Bestellung live verfolgen!</p>
+        <p style={{ textAlign: 'center', color: '#a0aec0', marginBottom: '30px' }}>Hallo <strong>{order.customerName}</strong>, hier kannst du deine Bestellung live verfolgen!</p>
 
         <div style={{ display: 'flex', gap: '15px', marginBottom: '30px' }}>
           <div style={{ flex: 1, backgroundColor: '#1a202c', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <span style={{ fontSize: '12px', color: '#a0aec0' }}>Bestellnummer:</span>
-            <h3 style={{ margin: '5px 0', fontSize: '20px' }}>#{order.id}</h3>
+            <h3 style={{ margin: '5px 0', fontSize: '14px', wordBreak: 'break-all' }}>#{order.id}</h3>
           </div>
-          <div style={{ flex: 1, backgroundColor: '#1a202c', padding: '15px', borderRadius: '8px', textAlign: 'center', border: order.status === 'storniert' ? '1px solid #ef4444' : '1px solid #f6ad55' }}>
-            <span style={{ fontSize: '12px', color: order.status === 'storniert' ? '#ef4444' : '#f6ad55', fontWeight: 'bold' }}>Status / Lieferzeit:</span>
-            <h3 style={{ margin: '5px 0', fontSize: '20px', color: order.status === 'storniert' ? '#ef4444' : '#fff' }}>{timeLeft}</h3>
+          <div style={{ flex: 1, backgroundColor: '#1a202c', padding: '15px', borderRadius: '8px', textAlign: 'center', border: isStatusCancelled ? '1px solid #ef4444' : '1px solid #f6ad55' }}>
+            <span style={{ fontSize: '12px', color: isStatusCancelled ? '#ef4444' : '#f6ad55', fontWeight: 'bold' }}>Status / Lieferzeit:</span>
+            <h3 style={{ margin: '5px 0', fontSize: '20px', color: isStatusCancelled ? '#ef4444' : '#fff' }}>{timeLeft}</h3>
           </div>
         </div>
 
         {/* Die Statusboxen */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-          <div style={getStepStyle(order.status, ['offen', 'zubereitung', 'erledigt'], '#ef4444')}>
+          <div style={getStepStyle(order.status, ['offen', 'open', 'zubereitung', 'cooking', 'erledigt', 'done', 'completed'], '#ef4444')}>
             📥<br />Eingegangen
           </div>
-          <div style={getStepStyle(order.status, ['zubereitung', 'erledigt'], '#f6ad55')}>
+          <div style={getStepStyle(order.status, ['zubereitung', 'cooking', 'erledigt', 'done', 'completed'], '#f6ad55')}>
             👨‍🍳<br />Im Ofen
           </div>
-          <div style={getStepStyle(order.status, ['erledigt'], '#10b981')}>
+          <div style={getStepStyle(order.status, ['erledigt', 'done', 'completed'], '#10b981')}>
             📦<br />Fertig!
           </div>
         </div>
@@ -155,21 +159,21 @@ export const OrderStatus: React.FC = () => {
           fontWeight: 'bold', 
           padding: '15px', 
           borderRadius: '6px', 
-          border: order.status === 'storniert' ? '1px solid #ef4444' : '1px dashed #4a5568', 
-          backgroundColor: order.status === 'storniert' ? '#742a2a' : 'transparent',
+          border: isStatusCancelled ? '1px solid #ef4444' : '1px dashed #4a5568', 
+          backgroundColor: isStatusCancelled ? '#742a2a' : 'transparent',
           marginBottom: '30px' 
         }}>
-          {order.status === 'offen' && '⏳ Deine Bestellung ist in der Warteschlange und wird gleich bestätigt.'}
-          {order.status === 'zubereitung' && '🔥 Gute Nachrichten! Deine Pizza wird gerade frisch gebacken.'}
-          {order.status === 'erledigt' && '✅ Guten Appetit! Deine Bestellung ist fertig zubereitet oder bereits auf dem Weg.'}
+          {(order.status === 'offen' || order.status === 'open') && '⏳ Deine Bestellung ist in der Warteschlange und wird gleich bestätigt.'}
+          {(order.status === 'zubereitung' || order.status === 'cooking') && '🔥 Gute Nachrichten! Deine Pizza wird gerade frisch gebacken.'}
+          {(order.status === 'erledigt' || order.status === 'done' || order.status === 'completed') && '✅ Guten Appetit! Deine Bestellung ist fertig zubereitet oder bereits auf dem Weg.'}
           
-          {/* NEU: Anzeige für die Stornierung */}
-          {order.status === 'storniert' && (
+          {/* Anzeige für die Stornierung */}
+          {isStatusCancelled && (
             <div>
               <span style={{ color: '#fca5a5' }}>🛑 Diese Bestellung wurde storniert.</span>
-              {order.stornoGrund && (
+              {order.cancellationReason && (
                 <div style={{ fontStyle: 'italic', fontWeight: 'normal', fontSize: '14px', marginTop: '8px', color: '#fecaca' }}>
-                  Grund der Küche: "{order.stornoGrund}"
+                  Grund der Küche: "{order.cancellationReason}"
                 </div>
               )}
             </div>

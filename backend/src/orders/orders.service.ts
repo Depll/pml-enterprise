@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../database/entities/order.entity';
+import { OrderPosition } from '../database/entities/order-position.entity';
+import { CreateOrderDto } from './dto/orders.dto';
 
 @Injectable()
 export class OrdersService {
@@ -10,30 +12,52 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
   ) {}
 
-  async createOrder(orderData: any): Promise<Order> {
-    const newOrder = this.orderRepository.create(orderData as object);
-    const savedOrder = await this.orderRepository.save(newOrder);
-    return savedOrder;
+  async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
+    const { positions, ...orderData } = createOrderDto;
+
+    const order = this.orderRepository.create(orderData);
+
+    order.positions = positions.map((pos) => {
+      const positionInstance = new OrderPosition();
+
+      positionInstance.quantity = pos.quantity;
+      positionInstance.priceSnapshot = pos.priceSnapshot;
+
+      // Weist einen leeren String zu, falls das Feld undefined oder null ist
+      positionInstance.selectedSize = pos.selectedSize ?? '';
+      positionInstance.selectedOption = pos.selectedOption ?? '';
+      positionInstance.comment = pos.comment ?? '';
+
+      positionInstance.selectedIngredientsIds =
+        pos.selectedIngredientsIds || [];
+
+      positionInstance.removedIngredientsIds = pos.removedIngredientsIds || [];
+
+      positionInstance.productId = Number(pos.productId);
+
+      return positionInstance;
+    });
+
+    return await this.orderRepository.save(order);
   }
 
   async findAllOrders(): Promise<Order[]> {
     return await this.orderRepository.find({
       relations: {
-        positionen: {
+        positions: {
           product: true,
         },
       },
       order: {
-        bestelltAm: 'DESC',
+        createdAt: 'DESC',
       },
     });
   }
 
-  // GEÄNDERT: Speichert jetzt auch den Stornogrund ab, falls einer mitgegeben wird
   async updateStatus(
-    id: number,
+    id: string,
     status: string,
-    stornoGrund: string | undefined,
+    stornoReason: string | undefined,
   ): Promise<Order> {
     const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) {
@@ -42,9 +66,8 @@ export class OrdersService {
 
     order.status = status;
 
-    // NEU: Wenn ein Stornogrund übergeben wird, tragen wir ihn ein (sonst bleibt er null/undefined)
-    if (stornoGrund !== undefined) {
-      order.stornoGrund = stornoGrund;
+    if (stornoReason !== undefined) {
+      order.stornoReason = stornoReason;
     }
 
     return await this.orderRepository.save(order);

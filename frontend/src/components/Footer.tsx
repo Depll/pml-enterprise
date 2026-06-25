@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Props für das Öffnen von Impressum und Datenschutz Modals
 interface FooterProps {
   onOpenImpressum: () => void;
   onOpenDatenschutz: () => void;

@@ -1,0 +1,2 @@
+[2026-06-25T13:50:11.920Z] POST /menu - Payload Received: {"sku":"PROD-1782395411915","name":"dd","description":"s","price":22,"categoryId":3,"isActive":true}
+[2026-06-25T13:51:06.720Z] POST /menu - Payload Received: {"sku":"PROD-1782395466715","name":"23","description":"23","price":11,"categoryId":1,"isActive":true}

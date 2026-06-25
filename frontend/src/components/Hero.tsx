@@ -11,8 +11,9 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz })
   const context = useCart();
   const cart = context?.cart || [];
 
+  // Berechnet die Gesamtzahl der Artikel und fängt sowohl deutsche als auch englische Keys ab
   const totalItems = cart.reduce((sum: number, item: any) => {
-    const qty = item.anzahl || item.quantity || 1;
+    const qty = item.quantity || item.anzahl || 1;
     return sum + qty;
   }, 0);
 
@@ -29,7 +30,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz })
           <button className="pml-delivery-area" onClick={onOpenPlz}>
             <span className="material-symbols-outlined pml-pin-icon">location_on</span>
             <span className="pml-delivery-text">
-              Liefergebiet: <strong>{currentPlz}</strong>
+              Liefergebiet: <strong>{currentPlz || 'Prüfen'}</strong>
               <span className="pml-change-link">Ändern</span>
             </span>
           </button>
@@ -43,7 +44,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz })
         </div>
       </nav>
 
-      {/* HERO BANNER - Jetzt mit Inline-Background-Verknüpfung */}
+      {/* HERO BANNER */}
       <section 
         className="pml-hero-section" 
         style={{ backgroundImage: `linear-gradient(rgba(20, 24, 33, 0.85), rgba(20, 24, 33, 0.85)), url('/hero-bg.jpg')` }}

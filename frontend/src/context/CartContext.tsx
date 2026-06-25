@@ -3,11 +3,20 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export interface CartItem {
   id: number;
   name: string;
+  
+  // Alte deutsche Felder (für Abwärtskompatibilität im Frontend)
   preis: number;
   menge: number;
   gewaehlteZutaten?: Array<{ id: number; name: string; preis: number }>;
   entfernteZutaten?: Array<{ id: number; name: string }>;
   anmerkung?: string;
+
+  // NEUE englische Felder (Mappen direkt auf die Werte, um TS-Fehler im Drawer zu killen)
+  price: number;
+  quantity: number;
+  selectedExtras?: Array<{ id: number; name: string; price: number }>;
+  removedZutaten?: Array<{ id: number; name: string }>;
+  comment?: string;
 }
 
 interface CartContextType {
@@ -20,6 +29,7 @@ interface CartContextType {
   ) => void;
   removeFromCart: (id: number) => void;
   updateMenge: (id: number, delta: number) => void;
+  updateQuantity: (id: number, delta: number) => void; // NEU: Alias für die englische Version
   clearCart: () => void;
   plz: string | null;
   savePLZ: (plz: string) => boolean;
@@ -62,27 +72,41 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       if (existiert) {
-        return prev.map((item) =>
-          item.id === produkt.id && 
-          JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras) &&
-          JSON.stringify(item.entfernteZutaten || []) === JSON.stringify(entfernte) &&
-          (item.anmerkung || '') === anmerkung
-            ? { ...item, menge: item.menge + 1 }
-            : item
-        );
+        return prev.map((item) => {
+          if (
+            item.id === produkt.id && 
+            JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras) &&
+            JSON.stringify(item.entfernteZutaten || []) === JSON.stringify(entfernte) &&
+            (item.anmerkung || '') === anmerkung
+          ) {
+            const neueMenge = item.menge + 1;
+            return { 
+              ...item, 
+              menge: neueMenge, 
+              quantity: neueMenge // Synchronisiert englischen Key
+            };
+          }
+          return item;
+        });
       }
 
       const aufpreisExtras = extras.reduce((sum, ext) => sum + ext.preis, 0);
       const endPreis = produkt.preis + aufpreisExtras;
 
+      // Neues Item befüllt sowohl deutsche als auch englische Keys vollautomatisch
       return [...prev, { 
         id: produkt.id, 
         name: produkt.name, 
         preis: endPreis, 
+        price: endPreis,
         menge: 1, 
+        quantity: 1,
         gewaehlteZutaten: extras,
+        selectedExtras: extras.map(e => ({ id: e.id, name: e.name, price: e.preis })),
         entfernteZutaten: entfernte,
-        anmerkung: anmerkung
+        removedZutaten: entfernte,
+        anmerkung: anmerkung,
+        comment: anmerkung
       }];
     });
   };
@@ -94,7 +118,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateMenge = (id: number, delta: number) => {
     setCart((prev) =>
       prev
-        .map((item) => (item.id === id ? { ...item, menge: item.menge + delta } : item))
+        .map((item) => {
+          if (item.id === id) {
+            const neueMenge = item.menge + delta;
+            return { ...item, menge: neueMenge, quantity: neueMenge };
+          }
+          return item;
+        })
         .filter((item) => item.menge > 0)
     );
   };
@@ -114,7 +144,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider value={{
-      cart, addToCart, removeFromCart, updateMenge, clearCart,
+      cart, addToCart, removeFromCart, updateMenge, updateQuantity: updateMenge, clearCart,
       plz, savePLZ, minOrderValue: MIN_ORDER_VALUE, totalPrice
     }}>
       {children}

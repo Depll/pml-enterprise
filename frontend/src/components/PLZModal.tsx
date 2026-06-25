@@ -1,40 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PlzModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (neuePlz: string) => void;
   currentPlz: string;
-  errorMessage?: string; // Definiert in den Props
+  errorMessage?: string; 
 }
 
-// 1. HIER errorMessage aus den Props mit herausziehen:
 export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, errorMessage }) => {
   const [inputValue, setInputValue] = useState<string>(currentPlz);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  // Setzt den internen Input-Wert zurück, wenn das Modal geöffnet wird
+  useEffect(() => {
+    if (isOpen) {
+      setInputValue(currentPlz);
+      setErrorMsg('');
+    }
+  }, [isOpen, currentPlz]);
+
   if (!isOpen) return null;
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Erlaubt nur Ziffern
+    setInputValue(value);
+    
+    // Sobald der User tippt, löschen wir den Frontend-Fehler
+    if (errorMsg) {
+      setErrorMsg('');
+    }
+  };
+
   const handleSave = () => {
-    // Einfache Vorab-Validierung im Frontend
     if (inputValue.trim().length !== 5) {
       setErrorMsg('Bitte gib eine gültige 5-stellige Postleitzahl ein.');
       return;
     }
     
     setErrorMsg('');
-    onSave(inputValue); // Schickt die PLZ an App.tsx für den Backend-Check
-    // HINWEIS: onClose() wurde hier entfernt, da App.tsx das Modal schließt, wenn die DB ihr "OK" gibt!
+    onSave(inputValue); 
   };
 
-  // Wir nutzen die Frontend-Fehlermeldung ODER die Backend-Fehlermeldung, falls vorhanden
   const anzuzeigenderFehler = errorMsg || errorMessage;
 
   return (
     <div className="pml-modal-overlay">
       <div className="pml-modal-content-card">
         
-        {/* Logo im Modal */}
         <div className="pml-modal-logo-area">
           <span className="pml-logo-main">Milano</span>
           <span className="pml-logo-sub">PIZZERIA</span>
@@ -45,7 +58,6 @@ export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, 
           Gib deine Postleitzahl ein, um zu prüfen, ob wir deine Bestellung zu dir nach Hause liefern können.
         </p>
 
-        {/* 2. HIER GENAU wird der Fehler dynamisch eingeblendet */}
         <p className={`pml-plz-error-msg ${anzuzeigenderFehler ? '' : 'pml-hidden'}`}>
           {anzuzeigenderFehler}
         </p>
@@ -56,7 +68,7 @@ export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, 
             id="plz-input" 
             placeholder="Deine PLZ (z.B. 51373)" 
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleInputChange}
             maxLength={5}
           />
         </div>

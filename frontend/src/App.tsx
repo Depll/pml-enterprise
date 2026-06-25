@@ -32,14 +32,9 @@ function App() {
   const [activeCategory, setActiveCategory] = useState<string>('alle');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Prüfen, ob der Kunde eine Bestell-ID in der URL hat
   const queryParams = new URLSearchParams(window.location.search);
   const isCustomerTracking = queryParams.has('id');
-
-  // NEU: Schauen, ob im Browser noch eine aktive Bestell-ID im Cache liegt
   const lastOrderId = localStorage.getItem('milano_last_order_id');
-
-  // Zustand, um den Banner manuell wegzuklicken, falls er stört
   const [hideBanner, setHideBanner] = useState<boolean>(false);
 
   const handlePlzSave = async (neuePlz: string) => {
@@ -49,10 +44,19 @@ function App() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/liefergebiet/check/${neuePlz}`);
+      // Endpoint-Pfad an das englische NestJS-Routing angepasst (/postal-code oder /liefergebiet)
+      // Falls dein Backend weiterhin /api/liefergebiet nutzt, belasse es so, andernfalls:
+      const response = await fetch(`http://localhost:3000/api/delivery-areas/check/${neuePlz}`);
+      
+      if (!response.ok) {
+        setPlzError('Fehler bei der Verbindung mit dem Server.');
+        return;
+      }
+      
       const data = await response.json();
 
-      if (data.erlaubt) {
+      // Erlaubt-Flag prüfen (unterstützt dynamic boolean Checks vom Backend)
+      if (data.erlaubt || data.allowed) {
         setPlz(neuePlz);
         localStorage.setItem('milano_plz', neuePlz);
         setPlzError('');
@@ -62,16 +66,14 @@ function App() {
       }
     } catch (error) {
       console.error('Fehler beim API-Aufruf:', error);
-      setPlzError('Verbindung zum Server failed.');
+      setPlzError('Verbindung zum Server fehlgeschlagen.');
     }
   };
 
-  // Wenn "?id=" in der URL steht, rendern wir NUR den Live-Tracker für den Kunden
   if (isCustomerTracking) {
     return <OrderStatus />;
   }
 
-  // Wenn der Admin-Modus aktiv ist, rendern wir das Küchen-Dashboard
   if (isAdminMode) {
     return (
       <div>
@@ -88,11 +90,9 @@ function App() {
     );
   }
 
-  // Normaler Pizza-Shop
   return (
     <div className="pml-app-wrapper">
       
-      {/* NEU: Info-Banner für die aktive Bestellung */}
       {lastOrderId && !hideBanner && (
         <div style={{ 
           backgroundColor: '#f6ad55', 
@@ -159,6 +159,7 @@ function App() {
       <CheckoutForm 
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
+        // Wir übergeben die unveränderte Zwischensumme; Rabatte/Steuern werden sauber im Checkout gekapselt
         totalPrice={totalPrice * 0.9}
         cartItems={cartItems}
         currentPlz={plz}

@@ -7,26 +7,29 @@ interface MenuProps {
   searchTerm: string;
 }
 
+// 1. Interface auf englische Backend-Namen angepasst
 interface Zutat {
   id: number;
   name: string;
-  aufpreis: string | number;
+  extraPrice: string | number; // von 'aufpreis' zu 'extraPrice'
 }
 
+// 2. Interface auf englische Backend-Namen angepasst
 interface Product {
   id: number;
   name: string;
-  beschreibung: string;
-  preis: string | number;
-  aktiv: boolean; // Steuert, ob das Produkt verfügbar ist
-  zutaten: Zutat[];
+  description: string; // von 'beschreibung' zu 'description'
+  price: string | number; // von 'preis' zu 'price'
+  isActive: boolean; // von 'aktiv' zu 'isActive'
+  ingredients: Zutat[]; // von 'zutaten' zu 'ingredients'
 }
 
+// 3. Interface auf englische Backend-Namen angepasst
 interface KategorieData {
   id: number;
   name: string;
   label: string;
-  produkte: Product[];
+  products: Product[]; // von 'produkte' zu 'products'
 }
 
 export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
@@ -77,7 +80,7 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
     const formattedExtras = selectedExtras.map(z => ({
       id: z.id,
       name: z.name,
-      preis: Number(z.aufpreis)
+      preis: Number(z.extraPrice) // von z.aufpreis zu z.extraPrice geändert
     }));
     
     addToCart(baseProduct, formattedExtras, removedZutaten, anmerkung);
@@ -113,13 +116,13 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
             return null;
           }
 
-          // NEU: Filtert ausverkaufte Produkte (aktiv === false) direkt heraus
-          let filteredProducts = (cat.produkte || []).filter(p => p.aktiv !== false);
+          // Auf cat.products geändert statt cat.produkte & p.isActive statt p.aktiv
+          let filteredProducts = (cat.products || []).filter(p => p.isActive !== false);
 
           if (searchTerm.trim() !== '') {
             filteredProducts = filteredProducts.filter(p => 
               p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-              (p.beschreibung && p.beschreibung.toLowerCase().includes(searchTerm.toLowerCase()))
+              (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase())) // p.description statt p.beschreibung
             );
           }
 
@@ -136,12 +139,14 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
                   <div key={product.id} className="pml-product-card">
                     <div>
                       <h3 className="pml-product-title">{product.name}</h3>
-                      <p className="pml-product-description">{product.beschreibung}</p>
+                      {/* p.description statt p.beschreibung */}
+                      <p className="pml-product-description">{product.description}</p> 
                     </div>
                     
                     <div className="pml-product-bottom">
                       <span className="pml-product-price">
-                        {Number(product.preis).toFixed(2).replace('.', ',')} €
+                        {/* product.price statt product.preis */}
+                        {Number(product.price).toFixed(2).replace('.', ',')} €
                       </span>
                       <button 
                         className="pml-btn-add-cart"

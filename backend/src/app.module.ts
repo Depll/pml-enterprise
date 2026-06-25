@@ -1,51 +1,57 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { KategorieEntity } from './database/entities/kategorie.entity';
-import { ProduktEntity } from './database/entities/produkt.entity';
-import { ZutatEntity } from './database/entities/zutat.entity';
-import { Liefergebiet } from './database/entities/liefergebiet.entity';
+
+// Neue englische Entities importieren
+import { CategoryEntity } from './database/entities/category.entity';
+import { ProductEntity } from './database/entities/product.entity';
+import { IngredientEntity } from './database/entities/ingredient.entity';
+import { DeliveryAreaEntity } from './database/entities/delivery-area.entity';
 import { Order } from './database/entities/order.entity';
 import { OrderPosition } from './database/entities/order-position.entity';
+
+// Services & Module importieren
 import { SeedService } from './database/seeds/seed.service';
 import { MenuModule } from './menu/menu.module';
-import { LiefergebietModule } from './liefergebiet/liefergebiet.module';
+import { DeliveryAreaModule } from './liefergebiet/delivery-area.module';
 import { OrdersModule } from './orders/orders.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env',
+      envFilePath: '../.env', // Hier ist der korrekte Pfad zu deiner .env-Datei!
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
+      host: process.env.DB_HOST,
       port: parseInt(process.env.DB_PORT || '5432', 10),
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_DATABASE || 'milano_db',
-      // HIER die neuen Entities für Bestellungen eintragen, damit TypeORM die Tabellen erzeugt:
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD, // Holt das Passwort jetzt sicher aus der echten Datei
+      database: process.env.DB_DATABASE,
       entities: [
-        KategorieEntity,
-        ProduktEntity,
-        ZutatEntity,
-        Liefergebiet,
+        CategoryEntity,
+        ProductEntity,
+        IngredientEntity,
+        DeliveryAreaEntity,
         Order,
         OrderPosition,
       ],
-      synchronize: true, // Da das auf true steht, legt TypeORM die Tabellen jetzt sofort live an!
+      synchronize: true,
     }),
     TypeOrmModule.forFeature([
-      KategorieEntity,
-      ProduktEntity,
-      ZutatEntity,
-      Liefergebiet,
+      CategoryEntity,
+      ProductEntity,
+      IngredientEntity,
+      DeliveryAreaEntity,
     ]),
     MenuModule,
-    LiefergebietModule,
-    OrdersModule, // <-- HIER das neue Modul registrieren, damit die API-Endpunkte aktiv sind!
+    DeliveryAreaModule,
+    OrdersModule,
   ],
-  providers: [SeedService],
+  controllers: [AppController],
+  providers: [AppService, SeedService],
 })
 export class AppModule {}
