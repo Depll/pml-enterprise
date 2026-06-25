@@ -15,6 +15,12 @@ interface Zutat {
 }
 
 // 2. Interface auf englische Backend-Namen angepasst
+
+interface ProductSize {
+  name: string;
+  price: number;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -22,6 +28,8 @@ interface Product {
   price: string | number; // von 'preis' zu 'price'
   isActive: boolean; // von 'aktiv' zu 'isActive'
   ingredients: Zutat[]; // von 'zutaten' zu 'ingredients'
+  sizes: ProductSize[] | null;  // <-- Das hat in Menu.tsx gefehlt!
+  options: string[] | null;
 }
 
 // 3. Interface auf englische Backend-Namen angepasst
