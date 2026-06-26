@@ -367,7 +367,8 @@ export const AdminDashboard: React.FC = () => {
         <div class="hr"></div>
         <div><strong>Kunde:</strong> ${order.customerName}</div>
         <div><strong>Adresse:</strong><br>${order.street} ${order.houseNumber}<br>${order.postcode} ${order.city}</div>
-        <div><strong>Tel:</strong> ${order.phone}</div>
+        <div><strong>Tel:</strong> {order.phone}</div>
+        ${order.email ? `<div><strong>E-Mail:</strong> ${order.email}</div>` : ''}
         ${order.deliveryNote ? `<div style="margin-top:5px; background:#eee; padding:3px;"><strong>Anmerkung:</strong> ${order.deliveryNote}</div>` : ''}
         <div class="hr"></div>
         <div class="bold">POSITIONEN:</div>
@@ -559,6 +560,16 @@ export const AdminDashboard: React.FC = () => {
                       {order.street} {order.houseNumber}<br />
                       {order.postcode} {order.city}<br />
                       <span className="font-semibold text-slate-400">Tel:</span> {order.phone}
+                      {/* E-Mail-Adresse hier dynamisch einblenden, falls vorhanden */}
+                      {order.email && (
+                        <>
+                          <br />
+                          <span className="font-semibold text-slate-400">E-Mail:</span>{" "}
+                          <a href={`mailto:${order.email}`} className="text-blue-400 hover:underline">
+                            {order.email}
+                          </a>
+                        </>
+                      )}
                     </p>
                     
                     {order.deliveryNote && (
