@@ -54,18 +54,17 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Positionen mappen: productId als Zahl senden & priceSnapshot hinzufügen
     const mappedPositions = cartItems.map((item) => {
       const activeExtras = item.gewaehlteZutaten || [];
       const activeRemoved = item.entfernteZutaten || [];
 
       return {
         productId: Number(item.id), 
-        quantity: Number(item.menge || 1), 
+        quantity: Number(item.menge || item.quantity || 1), 
         priceSnapshot: Number(item.preis || item.price || 0), 
         comment: item.anmerkung?.trim() || undefined, 
-        selectedSize: undefined, 
-        selectedOption: undefined,
+        selectedSize: item.selectedSize || undefined, 
+        selectedOption: item.selectedOption || undefined,
         selectedIngredientsIds: activeExtras.length > 0 
           ? activeExtras.map((z: any) => Number(z.id)) 
           : undefined,
@@ -105,7 +104,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         onClose();        
 
         localStorage.setItem('milano_last_order_id', neueBestellung.id.toString());
-        
         window.location.href = `http://localhost:5173/?id=${neueBestellung.id}`;
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -123,7 +121,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       <div className="pml-modal-wrapper pml-checkout-wrapper" onClick={(e) => e.stopPropagation()}>
         <div className="pml-modal-header">
           <h2 className="pml-modal-title">Deine Bestellung</h2>
-          <button className="pml-modal-close-btn" onClick={onClose}>&times;</button>
+          <button type="button" className="pml-modal-close-btn" onClick={onClose}>&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="pml-checkout-form">

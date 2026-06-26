@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-// ==========================================
-// TYPE DEFINITIONS
-// ==========================================
-
 interface Zutat {
   id: number;
   name: string;
@@ -13,7 +9,7 @@ interface Zutat {
 interface ProductSize {
   name: string;
   price: number;
-  extraIngredientPrice?: number; // Liest den dynamischen Zutaten-Aufpreis aus deinem DB-JSON
+  extraIngredientPrice?: number; 
 }
 
 interface Product {
@@ -21,9 +17,10 @@ interface Product {
   name: string;
   description: string;
   price: string | number;
+  preis?: string | number;
   ingredients: Zutat[];
-  sizes: ProductSize[] | null;  // jsonb aus der DB
-  options: string[] | null;     // jsonb aus der DB
+  sizes: ProductSize[] | null; 
+  options: string[] | null; 
 }
 
 interface ZutatenModalProps {
@@ -31,8 +28,8 @@ interface ZutatenModalProps {
   product: Product | null;
   onClose: () => void;
   onConfirm: (
-    product: { id: number; name: string; preis: number }, 
-    selectedExtras: Zutat[], 
+    product: { id: number; name: string; preis: number },
+    selectedExtras: Array<{ id: number; name: string; preis: number }>,
     removedZutaten: Array<{ id: number; name: string }>,
     anmerkung: string,
     selectedSize: string | null,
@@ -41,29 +38,24 @@ interface ZutatenModalProps {
 }
 
 export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onClose, onConfirm }) => {
-  // State-Management für die Benutzerauswahl
   const [selectedExtras, setSelectedExtras] = useState<Zutat[]>([]);
   const [removedZutaten, setRemovedZutaten] = useState<Array<{ id: number; name: string }>>([]);
   const [anmerkung, setAnmerkung] = useState<string>('');
-  
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  // Zurücksetzen und Initialisieren bei jedem Öffnen eines Produkts
   useEffect(() => {
     if (isOpen && product) {
       setSelectedExtras([]);
       setRemovedZutaten([]);
       setAnmerkung('');
       
-      // Falls Größen im JSON existieren (z. B. Pizza), wähle die erste ("Normal") standardmäßig aus
       if (product.sizes && product.sizes.length > 0) {
         setSelectedSize(product.sizes[0]);
       } else {
         setSelectedSize(null);
       }
 
-      // Falls Optionen im JSON existieren (z. B. Nudeln), wähle die erste Option standardmäßig aus
       if (product.options && product.options.length > 0) {
         setSelectedOption(product.options[0]);
       } else {
@@ -74,25 +66,23 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
 
   if (!isOpen || !product) return null;
 
-  // ==========================================
-  // DYNAMISCHE PREISKALKULATION
-  // ==========================================
-  
-  // 1. Basispreis: Entweder der Preis der gewählten Größe oder der Standard-Produktpreis
-  const activeBasePrice = selectedSize ? Number(selectedSize.price) : Number(product.price);
+  const getProductBasePrice = () => {
+    if (selectedSize) return Number(selectedSize.price || 0);
+    const roherPreis = product.price !== undefined ? product.price : product.preis;
+    return Number(roherPreis || 0);
+  };
 
-  // 2. Extras-Aufpreis: Wenn die ausgewählte Größe einen eigenen "extraIngredientPrice" vorgibt, nimm diesen.
+  const activeBasePrice = getProductBasePrice();
+
   const extrasPrice = selectedExtras.reduce((sum, zutat) => {
     if (selectedSize && typeof selectedSize.extraIngredientPrice === 'number') {
       return sum + selectedSize.extraIngredientPrice;
     }
-    return sum + Number(zutat.extraPrice);
+    return sum + Number(zutat.extraPrice || 0);
   }, 0);
 
-  // 3. Gesamtsumme
   const currentTotalPrice = activeBasePrice + extrasPrice;
 
-  // Extrahiert Standard-Zutaten aus der Beschreibung
   const getStandardZutaten = () => {
     if (!product.description || product.description.trim() === '') return [];
     const saubererText = product.description.replace(/^[mM]it\s+/, '').replace(/^[fF]rische\s+/, '');
@@ -123,7 +113,6 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
     <div className="pml-cart-overlay" onClick={onClose} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
       <div className="pml-cart-drawer" onClick={(e) => e.stopPropagation()} style={{ height: 'auto', maxHeight: '95vh', borderRadius: '12px', width: '90%', maxWidth: '500px' }}>
         
-        {/* MODAL HEADER */}
         <div className="pml-cart-header">
           <div>
             <h2 style={{ margin: 0 }}>{product.name} anpassen</h2>
@@ -132,10 +121,9 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
           <span className="pml-close-cart-btn" onClick={onClose}>&times;</span>
         </div>
 
-        {/* MODAL BODY */}
         <div className="pml-cart-body" style={{ padding: '20px', overflowY: 'auto', maxHeight: '60vh' }}>
           
-          {/* Sektion A: GRÖSSEN-RADIOBUTTONS (Rendert nur, falls im DB-JSON vorhanden) */}
+          {/* GRÖSSEN */}
           {product.sizes && product.sizes.length > 0 && (
             <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #e2e8f0' }}>
               <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#3182ce' }}>Größe wählen:</h3>
@@ -143,23 +131,23 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
                 {product.sizes.map((size, idx) => (
                   <label key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: selectedSize?.name === size.name ? '#ebf8ff' : 'transparent' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <input 
-                        type="radio" 
-                        name="product-size" 
-                        checked={selectedSize?.name === size.name} 
-                        onChange={() => setSelectedSize(size)} 
+                      <input
+                        type="radio"
+                        name="product-size"
+                        checked={selectedSize?.name === size.name}
+                        onChange={() => setSelectedSize(size)}
                         style={{ width: '16px', height: '16px' }}
                       />
                       <span style={{ fontWeight: 600 }}>{size.name}</span>
                     </div>
-                    <span style={{ color: '#2b6cb0', fontWeight: 'bold' }}>{Number(size.price).toFixed(2).replace('.', ',')} €</span>
+                    <span style={{ color: '#2b6cb0', fontWeight: 'bold' }}>{Number(size.price || 0).toFixed(2).replace('.', ',')} €</span>
                   </label>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Sektion B: OPTIONEN-DROPDOWN (Rendert nur, falls im DB-JSON vorhanden, z.B. bei Nudeln) */}
+          {/* OPTIONEN */}
           {product.options && product.options.length > 0 && (
             <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #e2e8f0' }}>
               <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#dd6b20' }}>Variante / Nudelsorte wählen:</h3>
@@ -175,7 +163,7 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             </div>
           )}
 
-          {/* Sektion C: STANDARD-ZUTATEN ABWÄHLEN */}
+          {/* STANDARD ZUTATEN ABWÄHLEN */}
           {standardZutaten.length > 0 && (
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#e53e3e' }}>Zutaten abwählen:</h3>
@@ -185,6 +173,7 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
                   return (
                     <button
                       key={z.id}
+                      type="button"
                       onClick={() => handleToggleRemoveStandard(z)}
                       style={{
                         padding: '6px 12px',
@@ -205,17 +194,15 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             </div>
           )}
 
-          {/* Sektion D: EXTRAS HINZUFÜGEN */}
+          {/* EXTRAS */}
           <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#319795' }}>Extra Zutaten hinzufügen:</h3>
           {product.ingredients && product.ingredients.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {product.ingredients.map((zutat) => {
                 const isChecked = selectedExtras.some((z) => z.id === zutat.id);
-                
-                // Ermittle den anzuzeigenden Preis dynamisch anhand des extraIngredientPrice der Größe
                 const currentExtraPrice = selectedSize && typeof selectedSize.extraIngredientPrice === 'number'
                   ? selectedSize.extraIngredientPrice
-                  : Number(zutat.extraPrice);
+                  : Number(zutat.extraPrice || 0);
 
                 return (
                   <label key={zutat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: isChecked ? '#e6fffa' : 'transparent' }}>
@@ -232,7 +219,7 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             <p style={{ color: '#a0aec0', fontSize: '13px' }}>Keine Extras für dieses Produkt verfügbar.</p>
           )}
 
-          {/* Sektion E: KÜCHENANMERKUNG */}
+          {/* ANMERKUNG */}
           <div style={{ marginTop: '20px' }}>
             <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>Anmerkung für die Küche:</h3>
             <textarea
@@ -245,26 +232,34 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
 
         </div>
 
-        {/* MODAL FOOTER */}
+        {/* FOOTER */}
         <div className="pml-cart-footer" style={{ padding: '20px', borderTop: '1px solid #e2e8f0' }}>
           <div className="pml-price-summary-row pml-total-row" style={{ marginBottom: '15px' }}>
             <span>Preis gesamt:</span>
             <span className="pml-total-price-badge">{currentTotalPrice.toFixed(2).replace('.', ',')} €</span>
           </div>
-          <button 
-            className="pml-btn-address-submit" 
-            onClick={() => { 
-              // Übergibt die Konfiguration (inklusive gewählter Größe & Option) an das Haupt-Widget
+          <button
+            type="button"
+            className="pml-btn-address-submit"
+            onClick={() => {
+              const formattedExtras = selectedExtras.map(z => ({
+                id: z.id,
+                name: z.name,
+                preis: selectedSize && typeof selectedSize.extraIngredientPrice === 'number'
+                  ? selectedSize.extraIngredientPrice
+                  : Number(z.extraPrice || 0)
+              }));
+
               onConfirm(
-                { id: product.id, name: product.name, preis: activeBasePrice }, 
-                selectedExtras, 
-                removedZutaten, 
+                { id: product.id, name: product.name, preis: activeBasePrice },
+                formattedExtras,
+                removedZutaten,
                 anmerkung,
                 selectedSize ? selectedSize.name : null,
                 selectedOption
-              ); 
-              onClose(); 
-            }} 
+              );
+              onClose();
+            }}
             style={{ width: '100%' }}
           >
             In den Warenkorb

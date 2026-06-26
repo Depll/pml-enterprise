@@ -19,6 +19,10 @@ function App() {
   const [isImpressumOpen, setIsImpressumOpen] = useState<boolean>(false);
   const [isDatenschutzOpen, setIsDatenschutzOpen] = useState<boolean>(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
+  
+  // State für den dynamischen, rabattierten Preis, der aus dem CartDrawer übergeben wird
+  const [checkoutPrice, setCheckoutPrice] = useState<number>(0);
+
   const [plz, setPlz] = useState<string>(() => {
     return localStorage.getItem('milano_plz') || '51373';
   });
@@ -44,8 +48,6 @@ function App() {
     }
 
     try {
-      // Endpoint-Pfad an das englische NestJS-Routing angepasst (/postal-code oder /liefergebiet)
-      // Falls dein Backend weiterhin /api/liefergebiet nutzt, belasse es so, andernfalls:
       const response = await fetch(`http://localhost:3000/api/delivery-areas/check/${neuePlz}`);
       
       if (!response.ok) {
@@ -55,7 +57,6 @@ function App() {
       
       const data = await response.json();
 
-      // Erlaubt-Flag prüfen (unterstützt dynamic boolean Checks vom Backend)
       if (data.erlaubt || data.allowed) {
         setPlz(neuePlz);
         localStorage.setItem('milano_plz', neuePlz);
@@ -159,8 +160,8 @@ function App() {
       <CheckoutForm 
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
-        // Wir übergeben die unveränderte Zwischensumme; Rabatte/Steuern werden sauber im Checkout gekapselt
-        totalPrice={totalPrice * 0.9}
+        // Verwendet den exakten, rabattierten Preis, den der CartDrawer berechnet hat
+        totalPrice={checkoutPrice > 0 ? checkoutPrice : totalPrice * 0.9}
         cartItems={cartItems}
         currentPlz={plz}
         onOrderSuccess={clearCart}
@@ -177,7 +178,8 @@ function App() {
       <CartDrawer 
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
-        onOpenCheckout={() => {
+        onOpenCheckout={(finalPrice) => {
+          setCheckoutPrice(finalPrice); // Speichert den reduzierten Endbetrag für den Checkout
           setIsCartOpen(false);
           setIsCheckoutOpen(true);
         }}

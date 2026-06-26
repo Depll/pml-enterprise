@@ -13,5 +13,10 @@
   "dependencies": {
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.1"
   }
 }
