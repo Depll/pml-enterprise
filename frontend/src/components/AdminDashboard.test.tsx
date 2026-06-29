@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest';
+import { describe, test, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { AdminDashboard } from './AdminDashboard';
@@ -150,5 +150,85 @@ describe('AdminDashboard Integrations-Tests', () => {
     // Wenn dein UI den Status nach dem Klick lokal optimistisch aktualisiert,
     // kannst du hier prüfen, ob der Button-Text verschwindet oder sich ändert.
   });
-  
+
+  test('Szenario 1: sollte bei einer Stornierung den Stornogrund korrekt ans Backend senden', async () => {
+    let interceptedBody: any = null;
+
+    server.use(
+      http.get('http://localhost:3000/orders', () => {
+        return HttpResponse.json([
+          {
+            id: 'order-storno-123',
+            customerName: 'Storno Kunde',
+            street: 'Teststraße',
+            houseNumber: '1',
+            postcode: '12345',
+            city: 'Mainz',
+            phone: '0151000000',
+            email: 'storno@test.de',
+            totalPrice: 12.00,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+            positions: []
+          }
+        ]);
+      }),
+      http.patch('http://localhost:3000/orders/order-storno-123/status', async ({ request }) => {
+        interceptedBody = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      })
+    );
+
+    // Prompt mocken, falls du window.prompt für den Stornogrund nutzt
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Keine Zutaten mehr da');
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Storno Kunde')).toBeInTheDocument();
+    });
+
+    // Storno-Button klicken (Text eventuell anpassen, z.B. "Stornieren" oder "X")
+    const stornoButton = screen.getByRole('button', { name: /Stornieren/i });
+    fireEvent.click(stornoButton);
+
+    // Prüfen, ob das Backend die richtigen Daten erhalten hat
+    await waitFor(() => {
+      expect(interceptedBody).toEqual({
+        status: 'storniert',
+        stornoReason: 'Keine Zutaten mehr da'
+      });
+    });
+
+    promptSpy.mockRestore();
+  });
+
+  test('Szenario 2: sollte die Bestellungen alle 5 Sekunden automatisch neu laden (Polling)', async () => {
+    vi.useFakeTimers();
+    let callCount = 0;
+
+    server.use(
+      http.get('http://localhost:3000/orders', () => {
+        callCount++;
+        return HttpResponse.json([]);
+      })
+    );
+
+    render(<AdminDashboard />);
+
+    // Vitest anweisen, alle Microtasks (wie useEffect-API-Aufrufe) sofort auszuführen
+    await vi.advanceTimersByTimeAsync(0);
+    expect(callCount).toBe(1);
+
+    // 5 Sekunden vorspringen
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(callCount).toBe(2);
+
+    // Nochmals 5 Sekunden vorspringen (zur Sicherheit)
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(callCount).toBe(3);
+
+    vi.useRealTimers();
+  });
+
 });
