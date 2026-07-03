@@ -1,28 +1,32 @@
 const API_URL = 'http://localhost:3000';
 
-export interface Zutat {
+export interface Ingredient {
   id: number;
   name: string;
-  aufpreis: number;
+  extraPrice: number;
 }
 
-export interface Produkt {
+export interface Product {
   id: number;
+  sku: string;
   name: string;
-  beschreibung: string;
-  preis: number;
-  aktiv: boolean;
-  zutaten: Zutat[];
+  description: string;
+  price: number;
+  is_active: boolean;
+  sizes: string;
+  options: string;
+  category_id: number
+  ingredients: Ingredient[]
 }
 
-export interface Kategorie {
+export interface Category {
   id: number;
   name: string;
   label: string;
-  produkte: Produkt[];
+  products: Product[];
 }
 
-export const fetchMenu = async (): Promise<Kategorie[]> => {
+export const fetchMenu = async (): Promise<Category[]> => {
   try {
     const response = await fetch(`${API_URL}/menu`);
     if (!response.ok) {

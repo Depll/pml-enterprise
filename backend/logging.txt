@@ -4,3 +4,4 @@
 [2026-06-25T14:19:47.578Z] POST /menu - Payload Received: {"sku":"PROD-1782397187573","name":"Pizza salami","description":"21","price":23,"categoryId":3,"isActive":true}
 [2026-06-25T15:51:50.339Z] POST /menu - Payload Received: {"sku":"PROD-1782402710333","name":"33","description":"33","price":66,"categoryId":1,"isActive":true}
 [2026-06-26T10:32:55.393Z] POST /menu - Payload Received: {"sku":"PROD-1782469975390","name":"345","description":"435","price":43,"categoryId":6,"isActive":true}
+[2026-07-03T16:43:50.308Z] POST /menu - Payload Received: {"sku":"PROD-1783097030292","name":"as","description":"dsd","price":22,"categoryId":1,"isActive":true}
