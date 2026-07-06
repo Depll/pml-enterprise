@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { IngredientsModal } from './IngredientsModal';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 interface MenuProps {
   activeCategory: string;
   searchTerm: string;
@@ -51,7 +53,7 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
     const fetchMenu = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('http://localhost:3000/menu'); 
+        const response = await fetch(`${API_URL}/menu`); 
         
         if (!response.ok) {
           throw new Error('Fehler beim Laden der Speisekarte');
