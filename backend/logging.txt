@@ -8,3 +8,4 @@
 [2026-07-06T09:25:51.928Z] POST /menu - Payload Received: {"sku":"PROD-1783329951904","name":"Pizza California","description":"mit Kavier","price":12,"categoryId":1,"isActive":true}
 [2026-07-06T09:58:35.586Z] POST /menu - Payload Received: {"sku":"PROD-1783331915581","name":"2312","description":"23","price":22,"categoryId":3,"isActive":true}
 [2026-07-06T11:12:23.890Z] POST /menu - Payload Received: {"sku":"PROD-1783336343884","name":"pizza paperona","description":"2ee","price":9,"categoryId":3,"sizes":[{"name":"Normal","price":9,"extraIngredientPrice":1.5},{"name":"XXL","price":13,"extraIngredientPrice":2},{"name":"Partyblech2","price":322,"extraIngredientPrice":4}],"isActive":true}
+[2026-07-06T14:17:33.055Z] POST /menu - Payload Received: {"sku":"PROD-1783347453031","name":"mac","description":"123","price":1,"categoryId":1,"isActive":true}
