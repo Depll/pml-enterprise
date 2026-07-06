@@ -34,15 +34,14 @@ services:
           property: database
 
   # 2. REACT FRONTEND
-  - type: web
+  - type: static # Geändert von web auf static
     name: milano-frontend
-    env: static # Static Site ist perfekt (und kostenlos) für React
     plan: free
-    rootDir: frontend # Zeigt auf deinen Frontend-Ordner
+    rootDir: frontend
     buildCommand: npm install && npm run build
-    publishDir: dist # Oder 'build', je nachdem was dein React-Build erzeugt (Vite nutzt meist dist)
+    publishPath: dist # Geändert von publishDir auf publishPath
     envVars:
-      - key: VITE_API_URL # Verknüpft dein Frontend automatisch mit der URL des Backends
+      - key: VITE_API_URL
         fromService:
           type: web
           name: milano-backend
