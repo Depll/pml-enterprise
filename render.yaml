@@ -1,14 +1,54 @@
 services:
+  # 1. NESTJS BACKEND
   - type: web
     name: milano-backend
     env: node
     plan: free
+    rootDir: backend # WICHTIG: Sagt Render, dass das Backend hier liegt
     buildCommand: npm install --include=dev && npm run build
-    startCommand: npm start
+    startCommand: node dist/main.js # Effizienter für den Produktivstart
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NPM_CONFIG_PRODUCTION
-        value: "false"
       - key: PORT
         value: 10000
+      - key: DB_HOST
+        fromDatabase:
+          name: milano-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: milano-db
+          property: port
+      - key: DB_USERNAME
+        fromDatabase:
+          name: milano-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: milano-db
+          property: password
+      - key: DB_DATABASE
+        fromDatabase:
+          name: milano-db
+          property: database
+
+  # 2. REACT FRONTEND
+  - type: web
+    name: milano-frontend
+    env: static # Static Site ist perfekt (und kostenlos) für React
+    plan: free
+    rootDir: frontend # Zeigt auf deinen Frontend-Ordner
+    buildCommand: npm install && npm run build
+    publishDir: dist # Oder 'build', je nachdem was dein React-Build erzeugt (Vite nutzt meist dist)
+    envVars:
+      - key: VITE_API_URL # Verknüpft dein Frontend automatisch mit der URL des Backends
+        fromService:
+          type: web
+          name: milano-backend
+          property: url
+
+# 3. POSTGRESQL DATENBANK
+databases:
+  - name: milano-db
+    plan: free
