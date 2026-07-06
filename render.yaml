@@ -4,9 +4,9 @@ services:
     name: milano-backend
     env: node
     plan: free
-    rootDir: backend # WICHTIG: Sagt Render, dass das Backend hier liegt
+    rootDir: backend
     buildCommand: npm install --include=dev && npm run build
-    startCommand: node dist/main.js # Effizienter für den Produktivstart
+    startCommand: node dist/main.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -33,13 +33,14 @@ services:
           name: milano-db
           property: database
 
-  # 2. REACT FRONTEND
-  - type: static # Geändert von web auf static
+  # 2. REACT FRONTEND (Korrigiert für Render)
+  - type: web_service # Das ist der richtige Typ für Blueprints
     name: milano-frontend
+    env: static       # Das sagt Render, dass es eine Static Site ist
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishPath: dist # Geändert von publishDir auf publishPath
+    publishPath: dist
     envVars:
       - key: VITE_API_URL
         fromService:
