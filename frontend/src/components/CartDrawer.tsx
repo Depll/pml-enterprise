@@ -25,7 +25,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
       <div className="pml-cart-drawer" onClick={(e) => e.stopPropagation()}>
         
         <div className="pml-cart-header">
-          <h2>Dein Warenkorb</h2>
+          <h2>Dein Warenkorbb</h2>
           <span className="pml-close-cart-btn" onClick={onClose}>&times;</span>
         </div>
 
