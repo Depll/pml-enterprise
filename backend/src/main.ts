@@ -1,27 +1,34 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-// import { SeedService } from './database/seeds/seed.service';
+import { SeedService } from './database/seeds/seed.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
 
-  // Automatische Validierungs-Pipe registrieren
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Filtert Felder heraus, die nicht im DTO stehen
-      transform: true, // Konvertiert Typen automatisch passend zum DTO
+      whitelist: true,
+      transform: true,
     }),
   );
 
-  // --- SEEDER START ---
-  //const seedService = app.get(SeedService);
-  // await seedService.runSeed();
-  // --------------------
+  // --- AUTOMATISCHER SEEDER FÜR RENDER ---
+  const seedService = app.get(SeedService);
+  try {
+    await seedService.runSeed();
+  } catch (seedError) {
+    console.error('Fehler beim Datenbank-Seeding:', seedError);
+  }
+  // ---------------------------------------
 
-  await app.listen(3000);
-  console.log('Application is running on: http://localhost:3000');
+  // Nutzt den von Render bereitgestellten Port oder standardmäßig 10000
+  const port = process.env.PORT || 10000;
+
+  // '0.0.0.0' erlaubt es Render, die App im internen Netzwerk anzusprechen
+  await app.listen(port, '0.0.0.0');
+  console.log(`Application is running on port: ${port}`);
 }
 bootstrap().catch((err) => {
   console.error('Fehler beim Starten der App:', err);
