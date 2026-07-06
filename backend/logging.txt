@@ -5,3 +5,6 @@
 [2026-06-25T15:51:50.339Z] POST /menu - Payload Received: {"sku":"PROD-1782402710333","name":"33","description":"33","price":66,"categoryId":1,"isActive":true}
 [2026-06-26T10:32:55.393Z] POST /menu - Payload Received: {"sku":"PROD-1782469975390","name":"345","description":"435","price":43,"categoryId":6,"isActive":true}
 [2026-07-03T16:43:50.308Z] POST /menu - Payload Received: {"sku":"PROD-1783097030292","name":"as","description":"dsd","price":22,"categoryId":1,"isActive":true}
+[2026-07-06T09:25:51.928Z] POST /menu - Payload Received: {"sku":"PROD-1783329951904","name":"Pizza California","description":"mit Kavier","price":12,"categoryId":1,"isActive":true}
+[2026-07-06T09:58:35.586Z] POST /menu - Payload Received: {"sku":"PROD-1783331915581","name":"2312","description":"23","price":22,"categoryId":3,"isActive":true}
+[2026-07-06T11:12:23.890Z] POST /menu - Payload Received: {"sku":"PROD-1783336343884","name":"pizza paperona","description":"2ee","price":9,"categoryId":3,"sizes":[{"name":"Normal","price":9,"extraIngredientPrice":1.5},{"name":"XXL","price":13,"extraIngredientPrice":2},{"name":"Partyblech2","price":322,"extraIngredientPrice":4}],"isActive":true}

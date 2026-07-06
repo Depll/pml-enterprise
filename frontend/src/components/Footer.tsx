@@ -1,16 +1,16 @@
 import React from 'react';
 
 interface FooterProps {
-  onOpenImpressum: () => void;
-  onOpenDatenschutz: () => void;
+  onOpenLegalNotice: () => void;
+  onOpenPrivacy: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschutz }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenLegalNotice, onOpenPrivacy }) => {
   return (
     <footer className="pml-milano-footer">
       <div className="pml-footer-inner">
         
-        {/* Top Branding Bereich */}
+        {/* Top branding area */}
         <div className="pml-footer-top-brand">
           <div className="pml-milano-logo-badge">
             <span className="pml-logo-main">Milano</span>
@@ -21,10 +21,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschu
           </p>
         </div>
 
-        {/* Vier-Spalten Grid-System */}
+        {/* Four-column grid */}
         <div className="pml-footer-columns-grid">
           
-          {/* Spalte 1: Kontakt */}
+          {/* Column 1: contact */}
           <div className="pml-footer-col">
             <h4>Kontakt</h4>
             <ul className="pml-contact-list">
@@ -46,7 +46,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschu
             </ul>
           </div>
 
-          {/* Spalte 2: Öffnungszeiten */}
+          {/* Column 2: opening hours */}
           <div className="pml-footer-col">
             <h4>Öffnungszeiten</h4>
             <table className="pml-hours-table">
@@ -67,7 +67,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschu
             </table>
           </div>
 
-          {/* Spalte 3: Social Media */}
+          {/* Column 3: social media */}
           <div className="pml-footer-col">
             <h4>Social Media</h4>
             <a href="https://facebook.com" target="_blank" rel="noreferrer" className="pml-fb-button">
@@ -75,7 +75,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschu
             </a>
           </div>
 
-          {/* Spalte 4: Rechtliches */}
+          {/* Column 4: legal links */}
           <div className="pml-footer-col">
             <h4>Rechtliches</h4>
             <ul className="pml-links-list">
@@ -84,7 +84,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschu
                   href="#impressum" 
                   onClick={(e) => { 
                     e.preventDefault(); 
-                    onOpenImpressum(); 
+                    onOpenLegalNotice(); 
                   }}
                 >
                   Impressum
@@ -95,7 +95,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenImpressum, onOpenDatenschu
                   href="#datenschutz" 
                   onClick={(e) => { 
                     e.preventDefault(); 
-                    onOpenDatenschutz(); 
+                    onOpenPrivacy(); 
                   }}
                 >
                   Datenschutz

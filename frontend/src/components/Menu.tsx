@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { ZutatenModal } from './ZutatenModal';
+import { IngredientsModal } from './IngredientsModal';
 
 interface MenuProps {
   activeCategory: string;
   searchTerm: string;
 }
 
-interface Zutat {
+interface Ingredient {
   id: number;
   name: string;
   extraPrice: string | number; 
@@ -16,6 +16,7 @@ interface Zutat {
 interface ProductSize {
   name: string;
   price: number;
+  extraIngredientPrice?: number;
 }
 
 interface Product {
@@ -24,12 +25,12 @@ interface Product {
   description: string; 
   price: string | number; 
   isActive: boolean; 
-  ingredients: Zutat[]; 
+  ingredients: Ingredient[]; 
   sizes: ProductSize[] | null;  
   options: string[] | null;
 }
 
-interface KategorieData {
+interface CategoryData {
   id: number;
   name: string;
   label: string;
@@ -39,7 +40,7 @@ interface KategorieData {
 export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
   const { addToCart } = useCart();
   
-  const [categoriesData, setCategoriesData] = useState<KategorieData[]>([]);
+  const [categoriesData, setCategoriesData] = useState<CategoryData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,25 +76,21 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
     setIsModalOpen(true);
   };
 
-  // HIER WAR DER FEHLER: Parameter für Größe und Variante gefehlt
   const handleConfirmExtras = (
-    baseProduct: { id: number; name: string; preis: number }, 
-    selectedExtras: Array<{ id: number; name: string; preis: number }>,
-    removedZutaten: Array<{ id: number; name: string }>,
-    anmerkung: string,
+    baseProduct: { id: number; name: string; price: number }, 
+    selectedExtras: Array<{ id: number; name: string; price: number }>,
+    removedIngredients: Array<{ id: number; name: string }>,
+    comment: string,
     selectedSize: string | null,
     selectedOption: string | null
   ) => {
-    // Da das ZutatenModal bereits korrekt formatierte Extras übergibt, 
-    // können wir formattedExtras direkt beibehalten oder absichern:
-    const formattedExtras = selectedExtras.map(z => ({
-      id: z.id,
-      name: z.name,
-      preis: Number(z.preis || (z as any).extraPrice || 0)
+    const formattedExtras = selectedExtras.map(ingredient => ({
+      id: ingredient.id,
+      name: ingredient.name,
+      price: Number(ingredient.price || (ingredient as any).extraPrice || 0)
     }));
-    
-    // Übergibt jetzt alle 6 notwendigen Argumente an den CartContext
-    addToCart(baseProduct, formattedExtras, removedZutaten, anmerkung, selectedSize, selectedOption);
+
+    addToCart(baseProduct, formattedExtras, removedIngredients, comment, selectedSize, selectedOption);
   };
 
   if (isLoading) {
@@ -170,7 +167,7 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
         })}
       </div>
 
-      <ZutatenModal 
+      <IngredientsModal 
         isOpen={isModalOpen}
         product={selectedProduct}
         onClose={() => setIsModalOpen(false)}

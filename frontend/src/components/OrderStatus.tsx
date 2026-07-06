@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
 interface Order {
-  id: string | number; // Unterstützt nun sowohl Number- als auch UUID-Strings aus dem Backend
-  customerName: string; // von kundeName zu customerName
+  id: string | number;
+  customerName: string;
   status: string;
-  cancellationReason?: string | null; // von stornoGrund zu cancellationReason
-  totalPrice: number; // von gesamtPreis zu totalPrice
-  createdAt: string; // von bestelltAm zu createdAt
+  cancellationReason?: string | null;
+  totalPrice: number;
+  createdAt: string;
 }
 
 export const OrderStatus: React.FC = () => {
@@ -30,8 +30,6 @@ export const OrderStatus: React.FC = () => {
       if (response.ok) {
         const orders: Order[] = await response.json();
         
-        // Da die ID im Backend je nach Entity-Definition ein String (UUID) oder Number sein kann,
-        // vergleichen wir flexibel mittels String-Konvertierung.
         const foundOrder = orders.find(o => String(o.id) === String(orderId));
         
         if (foundOrder) {
@@ -49,7 +47,6 @@ export const OrderStatus: React.FC = () => {
     }
   };
 
-  // Berechnet die verbleibende Lieferzeit
   const calculateTimeLeft = (createdAtStr: string, status: string) => {
     if (status === 'storniert' || status === 'cancelled') {
       setTimeLeft('Abgebrochen 🛑');
@@ -61,12 +58,12 @@ export const OrderStatus: React.FC = () => {
       return;
     }
 
-    const bestellZeit = new Date(createdAtStr).getTime();
-    const lieferZeit = bestellZeit + 30 * 60 * 1000; 
-    const jetzt = new Date().getTime();
-    const differenz = lieferZeit - jetzt;
+    const orderTime = new Date(createdAtStr).getTime();
+    const deliveryTime = orderTime + 30 * 60 * 1000; 
+    const now = new Date().getTime();
+    const difference = deliveryTime - now;
 
-    if (differenz <= 0) {
+    if (difference <= 0) {
       if (status === 'offen' || status === 'open') {
         setTimeLeft('Wird gleich vorbereitet... 🍕');
       } else if (status === 'zubereitung' || status === 'cooking') {
@@ -75,8 +72,8 @@ export const OrderStatus: React.FC = () => {
         setTimeLeft('Gleich bei dir! 🚀');
       }
     } else {
-      const minuten = Math.ceil(differenz / (1000 * 60));
-      setTimeLeft(`ca. ${minuten} Minuten`);
+      const minutes = Math.ceil(difference / (1000 * 60));
+      setTimeLeft(`ca. ${minutes} Minuten`);
     }
   };
 
@@ -118,7 +115,6 @@ export const OrderStatus: React.FC = () => {
     };
   };
 
-  // Hilfsvariable zur Statusüberprüfung (unterstützt Deutsch und Englisch aus der DB)
   const isStatusCancelled = order.status === 'storniert' || order.status === 'cancelled';
 
   return (
@@ -139,7 +135,7 @@ export const OrderStatus: React.FC = () => {
           </div>
         </div>
 
-        {/* Die Statusboxen */}
+        {/* Status boxes */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
           <div style={getStepStyle(order.status, ['offen', 'open', 'zubereitung', 'cooking', 'erledigt', 'done', 'completed'], '#ef4444')}>
             📥<br />Eingegangen
@@ -152,7 +148,7 @@ export const OrderStatus: React.FC = () => {
           </div>
         </div>
 
-        {/* Informationstext je nach Status */}
+        {/* Status-specific information */}
         <div style={{ 
           textAlign: 'center', 
           fontSize: '16px', 
@@ -167,7 +163,6 @@ export const OrderStatus: React.FC = () => {
           {(order.status === 'zubereitung' || order.status === 'cooking') && '🔥 Gute Nachrichten! Deine Pizza wird gerade frisch gebacken.'}
           {(order.status === 'erledigt' || order.status === 'done' || order.status === 'completed') && '✅ Guten Appetit! Deine Bestellung ist fertig zubereitet oder bereits auf dem Weg.'}
           
-          {/* Anzeige für die Stornierung */}
           {isStatusCancelled && (
             <div>
               <span style={{ color: '#fca5a5' }}>🛑 Diese Bestellung wurde storniert.</span>

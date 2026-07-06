@@ -1,21 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface CartItem {
-  cartItemId: string; // Eindeutiger Schlüssel für DIESE spezifische Konfiguration
+  cartItemId: string;
   id: number;
   name: string;
-  preis: number;
-  menge: number;
-  gewaehlteZutaten?: Array<{ id: number; name: string; preis: number }>;
-  entfernteZutaten?: Array<{ id: number; name: string }>;
-  anmerkung?: string;
-
   price: number;
   quantity: number;
+  selectedIngredients?: Array<{ id: number; name: string; price: number }>;
   selectedExtras?: Array<{ id: number; name: string; price: number }>;
-  removedZutaten?: Array<{ id: number; name: string }>;
   comment?: string;
-
+  removedIngredients?: Array<{ id: number; name: string }>;
   selectedSize?: string | null;
   selectedOption?: string | null;
 }
@@ -23,19 +17,18 @@ export interface CartItem {
 interface CartContextType {
   cart: CartItem[];
   addToCart: (
-    produkt: { id: number; name: string; preis: number },
-    extras?: Array<{ id: number; name: string; preis: number }>,
-    entfernte?: Array<{ id: number; name: string }>,
-    anmerkung?: string,
+    product: { id: number; name: string; price: number },
+    extras?: Array<{ id: number; name: string; price: number }>,
+    removed?: Array<{ id: number; name: string }>,
+    comment?: string,
     selectedSize?: string | null,
     selectedOption?: string | null
   ) => void;
   removeFromCart: (cartItemId: string) => void;
-  updateMenge: (cartItemId: string, delta: number) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
   clearCart: () => void;
-  plz: string | null;
-  savePLZ: (plz: string) => boolean;
+  postcode: string | null;
+  savePostcode: (postcode: string) => boolean;
   minOrderValue: number;
   totalPrice: number;
 }
@@ -51,8 +44,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [plz, setPlz] = useState<string | null>(() => {
-    return localStorage.getItem('pml_user_plz');
+  const [postcode, setPostcode] = useState<string | null>(() => {
+    return localStorage.getItem('pml_user_postcode') || localStorage.getItem('pml_user_plz');
   });
 
   useEffect(() => {
@@ -60,58 +53,53 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [cart]);
 
   const addToCart = (
-    produkt: { id: number; name: string; preis: number },
-    extras: Array<{ id: number; name: string; preis: number }> = [],
-    entfernte: Array<{ id: number; name: string }> = [],
-    anmerkung: string = '',
+    product: { id: number; name: string; price: number },
+    extras: Array<{ id: number; name: string; price: number }> = [],
+    removed: Array<{ id: number; name: string }> = [],
+    comment: string = '',
     selectedSize: string | null = null,
     selectedOption: string | null = null
   ) => {
     setCart((prev) => {
-      const existiert = prev.find(
+      const existingItem = prev.find(
         (item) =>
-          item.id === produkt.id &&
+          item.id === product.id &&
           item.selectedSize === selectedSize &&
           item.selectedOption === selectedOption &&
-          JSON.stringify(item.gewaehlteZutaten || []) === JSON.stringify(extras) &&
-          JSON.stringify(item.entfernteZutaten || []) === JSON.stringify(entfernte) &&
-          (item.anmerkung || '') === anmerkung
+          JSON.stringify(getSelectedIngredients(item)) === JSON.stringify(extras) &&
+          JSON.stringify(getRemovedIngredients(item)) === JSON.stringify(removed) &&
+          getComment(item) === comment
       );
 
-      if (existiert) {
+      if (existingItem) {
         return prev.map((item) => {
-          if (item.cartItemId === existiert.cartItemId) {
-            const neueMenge = item.menge + 1;
-            return { ...item, menge: neueMenge, quantity: neueMenge };
+          if (item.cartItemId === existingItem.cartItemId) {
+            const newQuantity = getQuantity(item) + 1;
+            return { ...item, quantity: newQuantity };
           }
           return item;
         });
       }
 
-      const aufpreisExtras = extras.reduce((sum, ext) => {
-        const extraPreisWert = ext.preis !== undefined ? ext.preis : (ext as any).price;
-        return sum + Number(extraPreisWert || 0);
+      const extrasSurcharge = extras.reduce((sum, ext) => {
+        return sum + Number(ext.price || 0);
       }, 0);
       
-      const basePriceWert = Number(produkt.preis || 0);
-      const endPreis = basePriceWert + aufpreisExtras;
+      const basePriceValue = Number(product.price || 0);
+      const finalPrice = basePriceValue + extrasSurcharge;
 
-      const generatedCartItemId = `${produkt.id}-${selectedSize || ''}-${selectedOption || ''}-${JSON.stringify(extras)}-${anmerkung}`;
+      const generatedCartItemId = `${product.id}-${selectedSize || ''}-${selectedOption || ''}-${JSON.stringify(extras)}-${comment}`;
 
       return [...prev, {
         cartItemId: generatedCartItemId,
-        id: produkt.id,
-        name: produkt.name,
-        preis: endPreis,
-        price: endPreis,
-        menge: 1,
+        id: product.id,
+        name: product.name,
+        price: finalPrice,
         quantity: 1,
-        gewaehlteZutaten: extras,
-        selectedExtras: extras.map(e => ({ id: e.id, name: e.name, price: e.preis !== undefined ? e.preis : (e as any).price })),
-        entfernteZutaten: entfernte,
-        removedZutaten: entfernte,
-        anmerkung: anmerkung,
-        comment: anmerkung,
+        selectedIngredients: extras,
+        selectedExtras: extras,
+        removedIngredients: removed,
+        comment: comment,
         selectedSize: selectedSize,
         selectedOption: selectedOption
       }];
@@ -122,40 +110,39 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
   };
 
-  const updateMenge = (cartItemId: string, delta: number) => {
+  const updateQuantity = (cartItemId: string, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) => {
           if (item.cartItemId === cartItemId) {
-            const neueMenge = item.menge + delta;
-            return { ...item, menge: neueMenge, quantity: neueMenge };
+            const newQuantity = getQuantity(item) + delta;
+            return { ...item, quantity: newQuantity };
           }
           return item;
         })
-        .filter((item) => item.menge > 0)
+        .filter((item) => getQuantity(item) > 0)
     );
   };
 
   const clearCart = () => setCart([]);
 
-  const savePLZ = (inputPlz: string): boolean => {
-    if (VALID_POSTCODES.includes(inputPlz)) {
-      setPlz(inputPlz);
-      localStorage.setItem('pml_user_plz', inputPlz);
+  const savePostcode = (inputPostcode: string): boolean => {
+    if (VALID_POSTCODES.includes(inputPostcode)) {
+      setPostcode(inputPostcode);
+      localStorage.setItem('pml_user_postcode', inputPostcode);
       return true;
     }
     return false;
   };
 
   const totalPrice = cart.reduce((sum, item) => {
-    const itemPreis = item.preis !== undefined ? item.preis : item.price;
-    return sum + Number(itemPreis || 0) * Number(item.menge || 1);
+    return sum + getPrice(item) * getQuantity(item);
   }, 0);
 
   return (
     <CartContext.Provider value={{
-      cart, addToCart, removeFromCart, updateMenge, updateQuantity: updateMenge, clearCart,
-      plz, savePLZ, minOrderValue: MIN_ORDER_VALUE, totalPrice
+      cart, addToCart, removeFromCart, updateQuantity, clearCart,
+      postcode, savePostcode, minOrderValue: MIN_ORDER_VALUE, totalPrice
     }}>
       {children}
     </CartContext.Provider>
@@ -167,3 +154,15 @@ export const useCart = () => {
   if (!context) throw new Error('useCart must be used within a CartProvider');
   return context;
 };
+
+const getPrice = (item: CartItem) => Number(item.price ?? (item as any).preis ?? 0);
+
+const getQuantity = (item: CartItem) => Number(item.quantity ?? (item as any).menge ?? 1);
+
+const getComment = (item: CartItem) => String(item.comment ?? (item as any).anmerkung ?? '');
+
+const getSelectedIngredients = (item: CartItem) =>
+  item.selectedIngredients ?? item.selectedExtras ?? (item as any).gewaehlteZutaten ?? [];
+
+const getRemovedIngredients = (item: CartItem) =>
+  item.removedIngredients ?? (item as any).removedZutaten ?? (item as any).entfernteZutaten ?? [];

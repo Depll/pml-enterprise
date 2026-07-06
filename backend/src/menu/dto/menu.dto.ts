@@ -3,9 +3,29 @@ import {
   IsNumber,
   IsOptional,
   IsBoolean,
+  IsArray,
   Min,
   Length,
 } from 'class-validator';
+
+export class ProductSizeDto {
+  @IsString({ message: 'Der Größenname muss ein Text sein.' })
+  @Length(1, 50, { message: 'Der Größenname muss ausgefüllt sein.' })
+  name: string;
+
+  @IsNumber({}, { message: 'Der Preis muss eine Zahl sein.' })
+  @Min(0, { message: 'Der Preis darf nicht negativ sein.' })
+  price: number;
+
+  @IsNumber(
+    {},
+    {
+      message: 'Der Aufpreis für Extra-Zutaten muss eine Zahl sein.',
+    },
+  )
+  @Min(0, { message: 'Der Aufpreis darf nicht negativ sein.' })
+  extraIngredientPrice: number;
+}
 
 // DTO für das Erstellen eines Produkts
 export class CreateProductDto {
@@ -29,6 +49,14 @@ export class CreateProductDto {
 
   @IsNumber({}, { message: 'Die Kategorie-ID muss eine Zahl sein.' })
   categoryId: number;
+
+  @IsOptional()
+  @IsArray({ message: 'Die Größen müssen als Array gesendet werden.' })
+  sizes?: ProductSizeDto[];
+
+  @IsOptional()
+  @IsArray({ message: 'Die Optionen müssen als Array gesendet werden.' })
+  options?: string[];
 
   @IsOptional()
   @IsBoolean({ message: 'Aktiv muss ein Boolean sein.' })

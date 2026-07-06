@@ -787,7 +787,7 @@ body {
   margin-bottom: 35px;
 }
 
-#plz-input {
+#postcode-input {
   width: 100%;
   padding: 16px 20px;
   font-size: 16px;
@@ -799,11 +799,11 @@ body {
   outline: none;
 }
 
-#plz-input::placeholder {
+#postcode-input::placeholder {
   color: #94a3b8;
 }
 
-#plz-input:focus {
+#postcode-input:focus {
   border-color: #8a1c1c;
 }
 
@@ -826,7 +826,7 @@ body {
   background-color: #6f1414;
 }
 
-.pml-plz-error-msg {
+.pml-postcode-error-msg {
   color: #bc4747;
   font-size: 17px;
   margin-top: 2px;
@@ -836,7 +836,7 @@ body {
   line-height: 1.4;
 }
 
-.pml-plz-error-msg.pml-hidden {
+.pml-postcode-error-msg.pml-hidden {
   display: none;
 }
 
@@ -1273,7 +1273,7 @@ body {
    11. LEGAL IMPRESSUM OVERLAY BOXES
    ========================================================================== */
 
-.pml-impressum-overlay {
+.pml-legal-notice-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -1286,11 +1286,11 @@ body {
   z-index: 2000;
 }
 
-.pml-impressum-overlay:not(.pml-hidden) {
+.pml-legal-notice-overlay:not(.pml-hidden) {
   display: flex;
 }
 
-.pml-impressum-modal-box {
+.pml-legal-notice-modal-box {
   background-color: #ffffff;
   width: 90%;
   max-width: 800px;
@@ -1301,7 +1301,7 @@ body {
   overflow: hidden;
 }
 
-.pml-impressum-modal-header {
+.pml-legal-notice-modal-header {
   padding: 20px 25px;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
@@ -1309,62 +1309,62 @@ body {
   align-items: center;
 }
 
-.pml-impressum-modal-header h2 {
+.pml-legal-notice-modal-header h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 800;
   color: #0f172a;
 }
 
-.pml-close-impressum-btn {
+.pml-close-legal-notice-btn {
   font-size: 30px;
   color: #64748b;
   cursor: pointer;
   line-height: 1;
 }
-.pml-close-impressum-btn:hover {
+.pml-close-legal-notice-btn:hover {
   color: #000000;
 }
 
-.pml-impressum-modal-body {
+.pml-legal-notice-modal-body {
   padding: 25px;
   overflow-y: auto;
 }
 
-.pml-impressum-block {
+.pml-legal-notice-block {
   margin-bottom: 20px;
 }
-.pml-impressum-block h3 {
+.pml-legal-notice-block h3 {
   font-size: 16px;
   font-weight: 700;
   margin-top: 0;
   margin-bottom: 4px;
   color: #000000;
 }
-.pml-impressum-block p {
+.pml-legal-notice-block p {
   margin: 0 0 2px 0;
 }
-.pml-impressum-text {
+.pml-legal-notice-text {
   font-size: 13.5px;
   color: #334155;
   margin: 0;
   text-align: justify;
 }
-.pml-impressum-link {
+.pml-legal-notice-link {
   color: #bc4747;
   text-decoration: none;
 }
-.pml-impressum-link:hover {
+.pml-legal-notice-link:hover {
   text-decoration: underline;
 }
 
-.pml-impressum-modal-footer-brand {
+.pml-legal-notice-modal-footer-brand {
   text-align: center;
   margin-top: 40px;
   border-top: 1px solid #e2e8f0;
   padding-top: 30px;
 }
-.pml-impressum-logo-box {
+.pml-legal-notice-logo-box {
   display: inline-block;
   background-color: #ffffff;
   padding: 8px 20px;
@@ -1372,14 +1372,14 @@ body {
   border-radius: 6px;
   margin-bottom: 12px;
 }
-.pml-impressum-logo-main {
+.pml-legal-notice-logo-main {
   font-family: "Arial Black", sans-serif;
   font-size: 26px;
   font-weight: 900;
   letter-spacing: 2px;
   color: #000000;
 }
-.pml-impressum-logo-sub {
+.pml-legal-notice-logo-sub {
   font-size: 10px;
   font-weight: bold;
   color: #8a1c1c;
@@ -1387,7 +1387,7 @@ body {
   text-transform: uppercase;
   margin-top: -4px;
 }
-.pml-impressum-slogan {
+.pml-legal-notice-slogan {
   font-size: 12.5px;
   color: #64748b;
   max-width: 450px;
@@ -1651,7 +1651,7 @@ body {
   /* --- Modals & Overlays --- */
   .pml-modal-content-card,
   .pml-product-modal-card,
-  .pml-impressum-modal-box {
+  .pml-legal-notice-modal-box {
     width: 90%;
     max-width: 95%;
     margin: 0 auto;

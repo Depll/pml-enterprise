@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CategoryEntity } from '../entities/category.entity';
-import { ProductEntity } from '../entities/product.entity';
+import { ProductEntity, ProductSize } from '../entities/product.entity';
 import { IngredientEntity } from '../entities/ingredient.entity';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -33,6 +33,38 @@ export class SeedService {
     @InjectRepository(DeliveryAreaEntity)
     private readonly deliveryAreaRepository: Repository<DeliveryAreaEntity>,
   ) {}
+
+  private getDefaultProductMeta(
+    cleanCategoryName: string,
+    basePrice: number,
+  ): { sizes: ProductSize[] | null; options: string[] | null } {
+    if (cleanCategoryName === 'pizza') {
+      return {
+        sizes: [
+          { name: 'Normal', price: basePrice, extraIngredientPrice: 1.5 },
+          { name: 'XXL', price: basePrice + 4.0, extraIngredientPrice: 2.0 },
+          { name: 'Partyblech', price: 30.0, extraIngredientPrice: 4.0 },
+        ],
+        options: null,
+      };
+    }
+
+    if (cleanCategoryName === 'salate') {
+      return {
+        sizes: null,
+        options: ['Joghurt-Dressing', 'Essig-Öl-Dressing', 'Kein Dressing'],
+      };
+    }
+
+    if (cleanCategoryName === 'nudelgerichte') {
+      return {
+        sizes: null,
+        options: ['Spaghetti', 'Rigatoni', 'Tortellini', 'Tagliatelle'],
+      };
+    }
+
+    return { sizes: null, options: null };
+  }
 
   async runSeed() {
     console.log(
@@ -141,34 +173,10 @@ export class SeedService {
             fallbackCounter++;
           }
 
-          // --- NEU: Zuweisung von Größen und Auswahloptionen basierend auf der Kategorie ---
-          let finalSizes: any[] | null = null;
-          let finalOptions: string[] | null = null;
-
-          if (cleanCategoryName === 'pizza') {
-            finalSizes = [
-              { name: 'Normal', price: parsedPrice, extraIngredientPrice: 1.5 },
-              {
-                name: 'XXL',
-                price: parsedPrice + 4.0,
-                extraIngredientPrice: 2.0,
-              },
-              { name: 'Partyblech', price: 30.0, extraIngredientPrice: 4.0 },
-            ];
-          } else if (cleanCategoryName === 'salate') {
-            finalOptions = [
-              'Joghurt-Dressing',
-              'Essig-Öl-Dressing',
-              'Kein Dressing',
-            ];
-          } else if (cleanCategoryName === 'nudelgerichte') {
-            finalOptions = [
-              'Spaghetti',
-              'Rigatoni',
-              'Tortellini',
-              'Tagliatelle',
-            ];
-          }
+          const defaultMeta = this.getDefaultProductMeta(
+            cleanCategoryName,
+            parsedPrice,
+          );
 
           // Produkt in die neue englische Entity-Struktur schreiben
           produkt = this.productRepository.create({
@@ -179,8 +187,8 @@ export class SeedService {
             isActive: true,
             category: kategorie,
             ingredients: produktZutaten,
-            sizes: finalSizes,
-            options: finalOptions,
+            sizes: defaultMeta.sizes,
+            options: defaultMeta.options,
           });
 
           await this.productRepository.save(produkt);

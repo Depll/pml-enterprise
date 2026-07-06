@@ -13,10 +13,14 @@ export interface Product {
   description: string;
   price: number;
   is_active: boolean;
-  sizes: string;
-  options: string;
-  category_id: number
-  ingredients: Ingredient[]
+  sizes: Array<{
+    name: string;
+    price: number;
+    extraIngredientPrice: number;
+  }> | null;
+  options: string[] | null;
+  category_id: number;
+  ingredients: Ingredient[];
 }
 
 export interface Category {

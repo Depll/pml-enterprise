@@ -3,23 +3,22 @@ import { useCart } from '../context/CartContext';
 
 interface HeroProps {
   onOpenCart: () => void;
-  onOpenPlz: () => void;
-  currentPlz: string;
+  onOpenPostcode: () => void;
+  currentPostcode: string;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz }) => {
+export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPostcode, currentPostcode }) => {
   const context = useCart();
   const cart = context?.cart || [];
 
-  // Berechnet die Gesamtzahl der Artikel und fängt sowohl deutsche als auch englische Keys ab
   const totalItems = cart.reduce((sum: number, item: any) => {
-    const qty = item.quantity || item.anzahl || 1;
-    return sum + qty;
+    const quantity = item.quantity || item.menge || 1;
+    return sum + quantity;
   }, 0);
 
   return (
     <>
-      {/* NAVBAR */}
+      {/* Navbar */}
       <nav className="pml-navbar-milano">
         <div className="pml-nav-container">
           <div className="pml-logo-box">
@@ -27,10 +26,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz })
             <span className="pml-logo-bottom">PIZZERIA</span>
           </div>
 
-          <button className="pml-delivery-area" onClick={onOpenPlz}>
+          <button className="pml-delivery-area" onClick={onOpenPostcode}>
             <span className="material-symbols-outlined pml-pin-icon">location_on</span>
             <span className="pml-delivery-text">
-              Liefergebiet: <strong>{currentPlz || 'Prüfen'}</strong>
+              Liefergebiet: <strong>{currentPostcode || 'Prüfen'}</strong>
               <span className="pml-change-link">Ändern</span>
             </span>
           </button>
@@ -44,7 +43,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenCart, onOpenPlz, currentPlz })
         </div>
       </nav>
 
-      {/* HERO BANNER */}
+      {/* Hero banner */}
       <section 
         className="pml-hero-section" 
         style={{ backgroundImage: `linear-gradient(rgba(20, 24, 33, 0.85), rgba(20, 24, 33, 0.85)), url('/hero-bg.jpg')` }}

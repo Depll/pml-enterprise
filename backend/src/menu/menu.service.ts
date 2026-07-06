@@ -2,7 +2,10 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CategoryEntity } from '../database/entities/category.entity';
-import { ProductEntity } from '../database/entities/product.entity';
+import {
+  ProductEntity,
+  ProductSize,
+} from '../database/entities/product.entity';
 import { IngredientEntity } from '../database/entities/ingredient.entity';
 import {
   CreateProductDto,
@@ -29,8 +32,48 @@ export class MenuService {
     private readonly ingredientRepository: Repository<IngredientEntity>,
   ) {}
 
+  private getCategoryDefaults(
+    categoryName: string,
+    basePrice: number,
+  ): { sizes: ProductSize[] | null; options: string[] | null } {
+    const normalized = categoryName
+      .toLowerCase()
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/ß/g, 'ss')
+      .replace(/\s+/g, '-');
+
+    if (normalized === 'pizza') {
+      return {
+        sizes: [
+          { name: 'Normal', price: basePrice, extraIngredientPrice: 1.5 },
+          { name: 'XXL', price: basePrice + 4.0, extraIngredientPrice: 2.0 },
+          { name: 'Partyblech', price: 30.0, extraIngredientPrice: 4.0 },
+        ],
+        options: null,
+      };
+    }
+
+    if (normalized === 'salate') {
+      return {
+        sizes: null,
+        options: ['Joghurt-Dressing', 'Essig-Öl-Dressing', 'Kein Dressing'],
+      };
+    }
+
+    if (normalized === 'nudelgerichte') {
+      return {
+        sizes: null,
+        options: ['Spaghetti', 'Rigatoni', 'Tortellini', 'Tagliatelle'],
+      };
+    }
+
+    return { sizes: null, options: null };
+  }
+
   async getMenu() {
-    return await this.categoryRepository.find({
+    const categories = await this.categoryRepository.find({
       relations: {
         products: {
           ingredients: true,
@@ -39,6 +82,29 @@ export class MenuService {
       order: {
         id: 'ASC',
       },
+    });
+
+    return categories.map((category) => {
+      return {
+        ...category,
+        products: category.products.map((product) => {
+          const productDefaults = this.getCategoryDefaults(
+            category.name,
+            Number(product.price),
+          );
+          return {
+            ...product,
+            sizes:
+              product.sizes && product.sizes.length > 0
+                ? product.sizes
+                : productDefaults.sizes,
+            options:
+              product.options && product.options.length > 0
+                ? product.options
+                : productDefaults.options,
+          };
+        }),
+      };
     });
   }
 
@@ -64,8 +130,21 @@ export class MenuService {
     });
 
     // 2. Original execution workflow for database mapping
-    const { categoryId, description, price, isActive, ...restlicheDaten } =
-      productData;
+    const {
+      categoryId,
+      description,
+      price,
+      isActive,
+      sizes,
+      options,
+      ...restlicheDaten
+    } = productData;
+
+    const category = await this.categoryRepository.findOne({
+      where: { id: Number(categoryId) },
+    });
+
+    const defaults = this.getCategoryDefaults(category?.name ?? '', price);
 
     const newProduct = this.productRepository.create({
       ...restlicheDaten,
@@ -73,6 +152,8 @@ export class MenuService {
       price,
       isActive: isActive ?? true,
       category: { id: Number(categoryId) } as CategoryEntity,
+      sizes: sizes ?? defaults.sizes,
+      options: options ?? defaults.options,
     });
 
     return await this.productRepository.save(newProduct);
@@ -81,13 +162,21 @@ export class MenuService {
   async updateProduct(id: number, productData: Partial<CreateProductDto>) {
     const product = await this.productRepository.findOne({
       where: { id: Number(id) },
+      relations: { category: true },
     });
     if (!product) {
       throw new NotFoundException(`Gericht mit ID ${id} nicht gefunden`);
     }
 
-    const { categoryId, description, price, isActive, ...restlicheDaten } =
-      productData;
+    const {
+      categoryId,
+      description,
+      price,
+      isActive,
+      sizes,
+      options,
+      ...restlicheDaten
+    } = productData;
 
     if (categoryId) {
       product.category = { id: Number(categoryId) } as CategoryEntity;
@@ -96,6 +185,32 @@ export class MenuService {
     if (description !== undefined) product.description = description;
     if (price !== undefined) product.price = price;
     if (isActive !== undefined) product.isActive = isActive;
+    if (sizes !== undefined) product.sizes = sizes;
+    if (options !== undefined) product.options = options;
+
+    const categoryName = categoryId
+      ? (
+          await this.categoryRepository.findOne({
+            where: { id: Number(categoryId) },
+          })
+        )?.name
+      : product.category?.name;
+
+    const defaults = this.getCategoryDefaults(
+      categoryName ?? '',
+      price ?? product.price,
+    );
+
+    if (sizes === undefined && (!product.sizes || product.sizes.length === 0)) {
+      product.sizes = defaults.sizes;
+    }
+
+    if (
+      options === undefined &&
+      (!product.options || product.options.length === 0)
+    ) {
+      product.options = defaults.options;
+    }
 
     Object.assign(product, restlicheDaten);
     return await this.productRepository.save(product);

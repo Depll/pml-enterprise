@@ -3,9 +3,8 @@ import { describe, test, expect, beforeAll, afterEach, afterAll, vi } from 'vite
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { AdminDashboard } from './AdminDashboard';
-import '@testing-library/jest-dom'; // <- Sucht nach globalem 'expect'
+import '@testing-library/jest-dom';
 
-// 1. API-Mock-Server definieren
 const mockMenuData = [
   {
     id: 1,
@@ -27,84 +26,69 @@ const mockMenuData = [
 ];
 
 const server = setupServer(
-  // Mock für das Laden der Bestellungen (leeres Array für dieses Beispiel)
   http.get('http://localhost:3000/orders', () => {
     return HttpResponse.json([]);
   }),
 
-  // Mock für das Laden der Speisekarte
   http.get('http://localhost:3000/menu', () => {
     return HttpResponse.json(mockMenuData);
   }),
 
-  // Mock für das Hinzufügen einer Zutat
   http.post('http://localhost:3000/menu/:productId/ingredient', async ({ request }) => {
-    const body = await request.json() as { name: string; extraPrice: number };
+    const body = await request.json() as { name: string; price: number };
     
-    // Testen, ob das Frontend das richtige DB-Feld "extraPrice" mitschickt
-    if (body.name && typeof body.extraPrice === 'number') {
+    if (body.name && typeof body.price === 'number') {
       return new HttpResponse(null, { status: 201 });
     }
     return new HttpResponse(null, { status: 400 });
   })
 );
 
-// Server-Lebenszyklus verwalten
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-// 2. Die Test-Fälle
 describe('AdminDashboard Integrations-Tests', () => {
   
-  test('sollte das Menü laden und den extraPrice korrekt anzeigen', async () => {
+  test('loads the menu and displays extraPrice correctly', async () => {
     render(<AdminDashboard />);
 
-    // Zum Speisekarte-Tab wechseln
     const menuTabButton = screen.getByRole('button', { name: /Speisekarte verwalten/i });
     fireEvent.click(menuTabButton);
 
-    // Warten, bis das Produkt aus dem API-Mock gerendert wurde
     await waitFor(() => {
       expect(screen.getByDisplayValue('Pizza Margherita')).toBeInTheDocument();
     });
 
-    // Prüfen, ob die Zutat "Extra Käse" mit dem richtigen Preis geladen wird
     expect(screen.getByDisplayValue('Extra Käse')).toBeInTheDocument();
     expect(screen.getByDisplayValue('1,50')).toBeInTheDocument();
   });
 
-  test('sollte eine neue Zutat mit Komma-Eingabe erfolgreich konvertieren und hinzufügen', async () => {
+  test('converts comma price input and adds a new ingredient', async () => {
     render(<AdminDashboard />);
 
-    // Tab wechseln
     fireEvent.click(screen.getByRole('button', { name: /Speisekarte verwalten/i }));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Zutat-Name (z.B. Extra Käse)')).toBeInTheDocument();
     });
 
-    // Inputs greifen
     const nameInput = screen.getByPlaceholderText('Zutat-Name (z.B. Extra Käse)');
     const priceInput = screen.getByPlaceholderText('1,50');
     const addButton = screen.getByRole('button', { name: /Extra hinzufügen/i });
 
-    // Werte eintragen (hier testen wir explizit das deutsche Komma)
     fireEvent.change(nameInput, { target: { value: 'Suckuk' } });
     fireEvent.change(priceInput, { target: { value: '2,50' } });
     
-    // Klick auf Absenden
     fireEvent.click(addButton);
 
-    // Prüfen, ob die Felder nach dem erfolgreichen POST-Request geleert wurden
     await waitFor(() => {
       expect(nameInput).toHaveValue('');
       expect(priceInput).toHaveValue('');
     });
   });
 
-  test('sollte Bestellungen laden, die E-Mail anzeigen und den Status ändern können', async () => {
-    // 1. Temporären API-Mock für diesen spezifischen Test hinzufügen
+  test('loads orders, displays email, and can update status', async () => {
     server.use(
       http.get('http://localhost:3000/orders', () => {
         return HttpResponse.json([
@@ -116,7 +100,7 @@ describe('AdminDashboard Integrations-Tests', () => {
             postcode: '12345',
             city: 'Berlin',
             phone: '01701234567',
-            email: 'max@mustermann.de', // <--- Unsere neue E-Mail
+            email: 'max@mustermann.de',
             totalPrice: 25.50,
             status: 'open',
             createdAt: new Date().toISOString(),
@@ -124,10 +108,9 @@ describe('AdminDashboard Integrations-Tests', () => {
           }
         ]);
       }),
-      // Mock für das Status-Update
       http.patch('http://localhost:3000/orders/order-123/status', async ({ request }) => {
         const body = await request.json() as { status: string };
-        if (body.status === 'preparing') {
+        if (body.status === 'zubereitung') {
           return new HttpResponse(null, { status: 200 });
         }
         return new HttpResponse(null, { status: 400 });
@@ -136,22 +119,16 @@ describe('AdminDashboard Integrations-Tests', () => {
 
     render(<AdminDashboard />);
 
-    // 2. Prüfen, ob die Bestellung und die E-Mail korrekt im Dokument landen
     await waitFor(() => {
       expect(screen.getByText('Max Mustermann')).toBeInTheDocument();
     });
     expect(screen.getByText('max@mustermann.de')).toBeInTheDocument();
 
-    // 3. Status-Änderung triggern (Button "In den Ofen" o.ä. klicken)
-    // Passe den Text hier an das an, was auf deinem Button steht (z.B. "In den Ofen" oder "Umsortieren")
     const statusButton = screen.getByRole('button', { name: /In den Ofen/i });
     fireEvent.click(statusButton);
-
-    // Wenn dein UI den Status nach dem Klick lokal optimistisch aktualisiert,
-    // kannst du hier prüfen, ob der Button-Text verschwindet oder sich ändert.
   });
 
-  test('Szenario 1: sollte bei einer Stornierung den Stornogrund korrekt ans Backend senden', async () => {
+  test('sends the cancellation reason to the backend when cancelling', async () => {
     let interceptedBody: any = null;
 
     server.use(
@@ -179,7 +156,6 @@ describe('AdminDashboard Integrations-Tests', () => {
       })
     );
 
-    // Prompt mocken, falls du window.prompt für den Stornogrund nutzt
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Keine Zutaten mehr da');
 
     render(<AdminDashboard />);
@@ -188,11 +164,9 @@ describe('AdminDashboard Integrations-Tests', () => {
       expect(screen.getByText('Storno Kunde')).toBeInTheDocument();
     });
 
-    // Storno-Button klicken (Text eventuell anpassen, z.B. "Stornieren" oder "X")
-    const stornoButton = screen.getByRole('button', { name: /Stornieren/i });
-    fireEvent.click(stornoButton);
+    const cancelButton = screen.getByRole('button', { name: /Stornieren/i });
+    fireEvent.click(cancelButton);
 
-    // Prüfen, ob das Backend die richtigen Daten erhalten hat
     await waitFor(() => {
       expect(interceptedBody).toEqual({
         status: 'storniert',
@@ -203,7 +177,7 @@ describe('AdminDashboard Integrations-Tests', () => {
     promptSpy.mockRestore();
   });
 
-  test('Szenario 2: sollte die Bestellungen alle 5 Sekunden automatisch neu laden (Polling)', async () => {
+  test('reloads orders every 5 seconds', async () => {
     vi.useFakeTimers();
     let callCount = 0;
 
@@ -216,15 +190,12 @@ describe('AdminDashboard Integrations-Tests', () => {
 
     render(<AdminDashboard />);
 
-    // Vitest anweisen, alle Microtasks (wie useEffect-API-Aufrufe) sofort auszuführen
     await vi.advanceTimersByTimeAsync(0);
     expect(callCount).toBe(1);
 
-    // 5 Sekunden vorspringen
     await vi.advanceTimersByTimeAsync(5000);
     expect(callCount).toBe(2);
 
-    // Nochmals 5 Sekunden vorspringen (zur Sicherheit)
     await vi.advanceTimersByTimeAsync(5000);
     expect(callCount).toBe(3);
 

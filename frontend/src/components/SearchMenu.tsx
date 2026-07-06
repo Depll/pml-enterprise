@@ -6,10 +6,10 @@ interface SearchMenuProps {
   onSearchChange: (searchTerm: string) => void;
 }
 
-interface BackendKategorie {
+interface BackendCategory {
   id: number;
-  name: string; // z.B. "pizza"
-  label: string; // z.B. "Pizza"
+  name: string;
+  label: string;
 }
 
 export const SearchMenu: React.FC<SearchMenuProps> = ({ 
@@ -17,7 +17,7 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
   onCategoryChange,
   onSearchChange 
 }) => {
-  const [dynamicCategories, setDynamicCategories] = useState<BackendKategorie[]>([]);
+  const [dynamicCategories, setDynamicCategories] = useState<BackendCategory[]>([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -26,13 +26,12 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
         if (response.ok) {
           const data = await response.json();
           
-          // Fallback eingebaut: Falls "label" im Backend fehlt, nutzen wir einfach "name"
-          const kats = data.map((item: any) => ({
+          const categories = data.map((item: any) => ({
             id: item.id,
             name: item.name,
             label: item.label || item.name, 
           }));
-          setDynamicCategories(kats);
+          setDynamicCategories(categories);
         }
       } catch (err) {
         console.error('Fehler beim Laden der Filter-Kategorien:', err);
@@ -47,7 +46,7 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
       <div className="pml-search-container">
         <h2 className="pml-search-title">Worauf hast du heute Lust?</h2>
         
-        {/* Suchfeld mit Event-Trigger */}
+        {/* Search field */}
         <div className="pml-search-box-wrapper">
           <span className="material-symbols-outlined pml-search-field-icon">search</span>
           <input 
@@ -58,7 +57,7 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
           />
         </div>
 
-        {/* Dynamische Kategorieliste direkt aus den Backend-Daten */}
+        {/* Dynamic category list from backend data */}
         <div className="pml-categories-scroll-wrapper">
           <div className="pml-categories-list">
             <span 
@@ -68,14 +67,13 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
               🍽️ Alles anzeigen
             </span>
             
-            {dynamicCategories.map((cat) => (
+            {dynamicCategories.map((category) => (
               <span 
-                key={cat.id}
-                className={`pml-category-item ${activeCategory.toLowerCase() === cat.name.toLowerCase() ? 'pml-active' : ''}`}
-                onClick={() => onCategoryChange(cat.name)}
+                key={category.id}
+                className={`pml-category-item ${activeCategory.toLowerCase() === category.name.toLowerCase() ? 'pml-active' : ''}`}
+                onClick={() => onCategoryChange(category.name)}
               >
-                {/* Zeigt das Label schön formatiert an */}
-                {cat.label.charAt(0).toUpperCase() + cat.label.slice(1)}
+                {category.label.charAt(0).toUpperCase() + category.label.slice(1)}
               </span>
             ))}
           </div>

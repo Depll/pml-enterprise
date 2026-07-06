@@ -1,11 +1,11 @@
 import React from 'react';
 
-interface DatenschutzModalProps {
+interface PrivacyModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const DatenschutzModal: React.FC<DatenschutzModalProps> = ({ isOpen, onClose }) => {
+export const PrivacyModal: React.FC<PrivacyModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (

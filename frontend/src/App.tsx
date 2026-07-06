@@ -4,10 +4,10 @@ import { Hero } from './components/Hero';
 import { SearchMenu } from './components/SearchMenu';
 import { Menu } from './components/Menu';
 import { Footer } from './components/Footer';
-import { PlzModal } from './components/PlzModal';
+import { PostcodeModal } from './components/PostcodeModal';
 import { CartDrawer } from './components/CartDrawer';
-import { ImpressumModal } from './components/ImpressumModal';
-import { DatenschutzModal } from './components/DatenschutzModal';
+import { LegalNoticeModal } from './components/LegalNoticeModal';
+import { PrivacyModal } from './components/PrivacyModal';
 import { CheckoutForm } from './components/CheckoutForm';
 import { AdminDashboard } from './components/AdminDashboard'; 
 import { OrderStatus } from './components/OrderStatus'; 
@@ -15,16 +15,15 @@ import { OrderStatus } from './components/OrderStatus';
 function App() {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false); 
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  const [isPlzModalOpen, setIsPlzModalOpen] = useState<boolean>(false);
-  const [isImpressumOpen, setIsImpressumOpen] = useState<boolean>(false);
-  const [isDatenschutzOpen, setIsDatenschutzOpen] = useState<boolean>(false);
+  const [isPostcodeModalOpen, setIsPostcodeModalOpen] = useState<boolean>(false);
+  const [isLegalNoticeOpen, setIsLegalNoticeOpen] = useState<boolean>(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState<boolean>(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   
-  // State für den dynamischen, rabattierten Preis, der aus dem CartDrawer übergeben wird
   const [checkoutPrice, setCheckoutPrice] = useState<number>(0);
 
-  const [plz, setPlz] = useState<string>(() => {
-    return localStorage.getItem('milano_plz') || '51373';
+  const [postcode, setPostcode] = useState<string>(() => {
+    return localStorage.getItem('milano_postcode') || localStorage.getItem('milano_plz') || '51373';
   });
 
   const cartContext = useCart();
@@ -32,7 +31,7 @@ function App() {
   const totalPrice = cartContext?.totalPrice || 0;
   const clearCart = cartContext?.clearCart || (() => {});
   
-  const [plzError, setPlzError] = useState<string>('');
+  const [postcodeError, setPostcodeError] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>('alle');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -41,33 +40,33 @@ function App() {
   const lastOrderId = localStorage.getItem('milano_last_order_id');
   const [hideBanner, setHideBanner] = useState<boolean>(false);
 
-  const handlePlzSave = async (neuePlz: string) => {
-    if (!/^\d{5}$/.test(neuePlz)) {
-      setPlzError('Bitte eine gültige 5-stellige PLZ eingeben.');
+  const handlePostcodeSave = async (newPostcode: string) => {
+    if (!/^\d{5}$/.test(newPostcode)) {
+      setPostcodeError('Bitte eine gültige 5-stellige PLZ eingeben.');
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/delivery-areas/check/${neuePlz}`);
+      const response = await fetch(`http://localhost:3000/api/delivery-areas/check/${newPostcode}`);
       
       if (!response.ok) {
-        setPlzError('Fehler bei der Verbindung mit dem Server.');
+        setPostcodeError('Fehler bei der Verbindung mit dem Server.');
         return;
       }
       
       const data = await response.json();
 
       if (data.erlaubt || data.allowed) {
-        setPlz(neuePlz);
-        localStorage.setItem('milano_plz', neuePlz);
-        setPlzError('');
-        setIsPlzModalOpen(false);
+        setPostcode(newPostcode);
+        localStorage.setItem('milano_postcode', newPostcode);
+        setPostcodeError('');
+        setIsPostcodeModalOpen(false);
       } else {
-        setPlzError('Wir beliefern aktuell nur Leverkusen!');
+        setPostcodeError('Wir beliefern aktuell nur Leverkusen!');
       }
     } catch (error) {
       console.error('Fehler beim API-Aufruf:', error);
-      setPlzError('Verbindung zum Server fehlgeschlagen.');
+      setPostcodeError('Verbindung zum Server fehlgeschlagen.');
     }
   };
 
@@ -124,11 +123,11 @@ function App() {
 
       <Hero 
         onOpenCart={() => setIsCartOpen(true)} 
-        onOpenPlz={() => {
-          setPlzError('');
-          setIsPlzModalOpen(true);
+        onOpenPostcode={() => {
+          setPostcodeError('');
+          setIsPostcodeModalOpen(true);
         }} 
-        currentPlz={plz}
+        currentPostcode={postcode}
       />
       
       <SearchMenu 
@@ -143,43 +142,42 @@ function App() {
       />
 
       <Footer 
-        onOpenImpressum={() => setIsImpressumOpen(true)} 
-        onOpenDatenschutz={() => setIsDatenschutzOpen(true)}
+        onOpenLegalNotice={() => setIsLegalNoticeOpen(true)} 
+        onOpenPrivacy={() => setIsPrivacyOpen(true)}
       />
 
-      <ImpressumModal 
-        isOpen={isImpressumOpen} 
-        onClose={() => setIsImpressumOpen(false)} 
+      <LegalNoticeModal 
+        isOpen={isLegalNoticeOpen} 
+        onClose={() => setIsLegalNoticeOpen(false)} 
       />
 
-      <DatenschutzModal
-        isOpen={isDatenschutzOpen}
-        onClose={() => setIsDatenschutzOpen(false)}
+      <PrivacyModal
+        isOpen={isPrivacyOpen}
+        onClose={() => setIsPrivacyOpen(false)}
       />
 
       <CheckoutForm 
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
-        // Verwendet den exakten, rabattierten Preis, den der CartDrawer berechnet hat
         totalPrice={checkoutPrice > 0 ? checkoutPrice : totalPrice * 0.9}
         cartItems={cartItems}
-        currentPlz={plz}
+        currentPostcode={postcode}
         onOrderSuccess={clearCart}
       />
 
-      <PlzModal 
-        isOpen={isPlzModalOpen}
-        onClose={() => setIsPlzModalOpen(false)}
-        onSave={handlePlzSave}
-        currentPlz={plz}
-        errorMessage={plzError}
+      <PostcodeModal 
+        isOpen={isPostcodeModalOpen}
+        onClose={() => setIsPostcodeModalOpen(false)}
+        onSave={handlePostcodeSave}
+        currentPostcode={postcode}
+        errorMessage={postcodeError}
       />
 
       <CartDrawer 
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onOpenCheckout={(finalPrice) => {
-          setCheckoutPrice(finalPrice); // Speichert den reduzierten Endbetrag für den Checkout
+          setCheckoutPrice(finalPrice);
           setIsCartOpen(false);
           setIsCheckoutOpen(true);
         }}

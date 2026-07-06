@@ -8,17 +8,17 @@ interface CartDrawerProps {
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenCheckout }) => {
-  const { cart, removeFromCart, updateMenge, totalPrice } = useCart();
+  const { cart, removeFromCart, updateQuantity, totalPrice } = useCart();
 
   if (!isOpen) return null;
 
-  const RABATT_PROZENT = 10;
-  const rabattAbzug = totalPrice * (RABATT_PROZENT / 100);
-  const endSumme = totalPrice - rabattAbzug;
+  const DISCOUNT_PERCENT = 10;
+  const discountAmount = totalPrice * (DISCOUNT_PERCENT / 100);
+  const finalTotal = totalPrice - discountAmount;
 
-  const MINDESTBESTELLWERT = 15.0;
-  const istUnterMindestwert = endSumme < MINDESTBESTELLWERT && cart.length > 0;
-  const fehlenderBetrag = MINDESTBESTELLWERT - endSumme;
+  const MINIMUM_ORDER_VALUE = 15.0;
+  const isBelowMinimumOrder = finalTotal < MINIMUM_ORDER_VALUE && cart.length > 0;
+  const missingAmount = MINIMUM_ORDER_VALUE - finalTotal;
 
   return (
     <div className="pml-cart-overlay" onClick={onClose}>
@@ -39,7 +39,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
           ) : (
             <div className="pml-cart-items-wrapper">
               {cart.map((item) => {
-                const itemPreis = item.preis !== undefined ? item.preis : item.price;
+                const itemPrice = Number(item.price ?? (item as any).preis ?? 0);
+                const quantity = Number(item.quantity ?? (item as any).menge ?? 1);
+                const selectedIngredients = item.selectedIngredients ?? item.selectedExtras ?? (item as any).gewaehlteZutaten ?? [];
+                const removedIngredients = item.removedIngredients ?? (item as any).removedZutaten ?? (item as any).entfernteZutaten ?? [];
+                const comment = item.comment ?? (item as any).anmerkung ?? '';
 
                 return (
                   <div key={item.cartItemId} className="pml-cart-item-card">
@@ -55,21 +59,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
                           </div>
                         )}
 
-                        {item.gewaehlteZutaten && item.gewaehlteZutaten.length > 0 && (
+                        {selectedIngredients.length > 0 && (
                           <div style={{ fontSize: '12px', color: '#319795', marginTop: '4px' }}>
-                            + {item.gewaehlteZutaten.map(z => z.name).join(', ')}
+                            + {selectedIngredients.map((ingredient: { name: string }) => ingredient.name).join(', ')}
                           </div>
                         )}
 
-                        {item.entfernteZutaten && item.entfernteZutaten.length > 0 && (
+                        {removedIngredients.length > 0 && (
                           <div style={{ fontSize: '12px', color: '#e53e3e', marginTop: '2px', textDecoration: 'line-through' }}>
-                            ohne {item.entfernteZutaten.map(z => z.name).join(', ')}
+                            ohne {removedIngredients.map((ingredient: { name: string }) => ingredient.name).join(', ')}
                           </div>
                         )}
 
-                        {item.anmerkung && item.anmerkung.trim() !== '' && (
+                        {comment.trim() !== '' && (
                           <div style={{ fontSize: '12px', color: '#718096', marginTop: '6px', fontStyle: 'italic', backgroundColor: '#f7fafc', padding: '4px 8px', borderRadius: '4px', borderLeft: '2px solid #cbd5e0' }}>
-                            📝 "{item.anmerkung}"
+                            📝 "{comment}"
                           </div>
                         )}
                       </div>
@@ -78,13 +82,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
                     
                     <div className="pml-cart-item-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
                       <div className="pml-quantity-control" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => updateMenge(item.cartItemId, -1)} style={{ padding: '2px 8px', cursor: 'pointer' }}>-</button>
-                        <span>{item.menge}x</span>
-                        <button onClick={() => updateMenge(item.cartItemId, 1)} style={{ padding: '2px 8px', cursor: 'pointer' }}>+</button>
+                        <button onClick={() => updateQuantity(item.cartItemId, -1)} style={{ padding: '2px 8px', cursor: 'pointer' }}>-</button>
+                        <span>{quantity}x</span>
+                        <button onClick={() => updateQuantity(item.cartItemId, 1)} style={{ padding: '2px 8px', cursor: 'pointer' }}>+</button>
                       </div>
                       
                       <span className="pml-item-price">
-                        {(Number(itemPreis || 0) * item.menge).toFixed(2).replace('.', ',')} €
+                        {(itemPrice * quantity).toFixed(2).replace('.', ',')} €
                       </span>
                     </div>
                   </div>
@@ -95,10 +99,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
         </div>
 
         <div className="pml-cart-footer">
-          {istUnterMindestwert && (
+          {isBelowMinimumOrder && (
             <div style={{ backgroundColor: '#fffaf0', border: '1px solid #feebc8', color: '#c05621', padding: '10px', borderRadius: '6px', fontSize: '13px', marginBottom: '15px', textAlign: 'center', fontWeight: '500' }}>
-              ⚠️ Mindestbestellwert von {MINDESTBESTELLWERT.toFixed(2).replace('.', ',')} € (nach Rabatt) nicht erreicht.<br />
-              Dir fehlen noch <strong>{fehlenderBetrag.toFixed(2).replace('.', ',')} €</strong>!
+              ⚠️ Mindestbestellwert von {MINIMUM_ORDER_VALUE.toFixed(2).replace('.', ',')} € (nach Rabatt) nicht erreicht.<br />
+              Dir fehlen noch <strong>{missingAmount.toFixed(2).replace('.', ',')} €</strong>!
             </div>
           )}
 
@@ -110,7 +114,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#10b981', fontWeight: '500' }}>
                 <span>🌐 Web-Rabatt (10%):</span>
-                <span>-{rabattAbzug.toFixed(2).replace('.', ',')} €</span>
+                <span>-{discountAmount.toFixed(2).replace('.', ',')} €</span>
               </div>
             </div>
           )}
@@ -118,21 +122,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
           <div className="pml-price-summary-row pml-total-row" style={{ marginTop: '0' }}>
             <span>Gesamtsumme:</span>
             <span className="pml-total-price-badge">
-              {(cart.length > 0 ? endSumme : 0).toFixed(2).replace('.', ',')} €
+              {(cart.length > 0 ? finalTotal : 0).toFixed(2).replace('.', ',')} €
             </span>
           </div>
 
           <div className="pml-cart-action-area" style={{ marginTop: '15px' }}>
             <button 
               className="pml-btn-address-submit" 
-              disabled={cart.length === 0 || istUnterMindestwert}
-              onClick={() => onOpenCheckout(endSumme)}
+              disabled={cart.length === 0 || isBelowMinimumOrder}
+              onClick={() => onOpenCheckout(finalTotal)}
               style={{
-                opacity: (cart.length === 0 || istUnterMindestwert) ? 0.5 : 1,
-                cursor: (cart.length === 0 || istUnterMindestwert) ? 'not-allowed' : 'pointer'
+                opacity: (cart.length === 0 || isBelowMinimumOrder) ? 0.5 : 1,
+                cursor: (cart.length === 0 || isBelowMinimumOrder) ? 'not-allowed' : 'pointer'
               }}
             >
-              {istUnterMindestwert ? 'Mindestbestellwert beachten' : 'Zur Kasse gehen'}
+              {isBelowMinimumOrder ? 'Mindestbestellwert beachten' : 'Zur Kasse gehen'}
             </button>
           </div>
         </div>

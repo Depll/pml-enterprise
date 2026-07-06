@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-interface Zutat {
+interface Ingredient {
   id: number;
   name: string;
   extraPrice: string | number;
@@ -17,38 +17,37 @@ interface Product {
   name: string;
   description: string;
   price: string | number;
-  preis?: string | number;
-  ingredients: Zutat[];
+  ingredients: Ingredient[];
   sizes: ProductSize[] | null; 
   options: string[] | null; 
 }
 
-interface ZutatenModalProps {
+interface IngredientsModalProps {
   isOpen: boolean;
   product: Product | null;
   onClose: () => void;
   onConfirm: (
-    product: { id: number; name: string; preis: number },
-    selectedExtras: Array<{ id: number; name: string; preis: number }>,
-    removedZutaten: Array<{ id: number; name: string }>,
-    anmerkung: string,
+    product: { id: number; name: string; price: number },
+    selectedExtras: Array<{ id: number; name: string; price: number }>,
+    removedIngredients: Array<{ id: number; name: string }>,
+    comment: string,
     selectedSize: string | null,
     selectedOption: string | null
   ) => void;
 }
 
-export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onClose, onConfirm }) => {
-  const [selectedExtras, setSelectedExtras] = useState<Zutat[]>([]);
-  const [removedZutaten, setRemovedZutaten] = useState<Array<{ id: number; name: string }>>([]);
-  const [anmerkung, setAnmerkung] = useState<string>('');
+export const IngredientsModal: React.FC<IngredientsModalProps> = ({ isOpen, product, onClose, onConfirm }) => {
+  const [selectedExtras, setSelectedExtras] = useState<Ingredient[]>([]);
+  const [removedIngredients, setRemovedIngredients] = useState<Array<{ id: number; name: string }>>([]);
+  const [comment, setComment] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && product) {
       setSelectedExtras([]);
-      setRemovedZutaten([]);
-      setAnmerkung('');
+      setRemovedIngredients([]);
+      setComment('');
       
       if (product.sizes && product.sizes.length > 0) {
         setSelectedSize(product.sizes[0]);
@@ -68,44 +67,43 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
 
   const getProductBasePrice = () => {
     if (selectedSize) return Number(selectedSize.price || 0);
-    const roherPreis = product.price !== undefined ? product.price : product.preis;
-    return Number(roherPreis || 0);
+    return Number(product.price || 0);
   };
 
   const activeBasePrice = getProductBasePrice();
 
-  const extrasPrice = selectedExtras.reduce((sum, zutat) => {
+  const extrasPrice = selectedExtras.reduce((sum, ingredient) => {
     if (selectedSize && typeof selectedSize.extraIngredientPrice === 'number') {
       return sum + selectedSize.extraIngredientPrice;
     }
-    return sum + Number(zutat.extraPrice || 0);
+    return sum + Number(ingredient.extraPrice || 0);
   }, 0);
 
   const currentTotalPrice = activeBasePrice + extrasPrice;
 
-  const getStandardZutaten = () => {
+  const getStandardIngredients = () => {
     if (!product.description || product.description.trim() === '') return [];
-    const saubererText = product.description.replace(/^[mM]it\s+/, '').replace(/^[fF]rische\s+/, '');
-    const teile = saubererText.split(/,|\bund\b/).map(z => z.trim());
-    return teile
-      .filter(z => z.length > 0 && !z.toLowerCase().includes('klassiker') && !z.toLowerCase().includes('pfand'))
+    const cleanText = product.description.replace(/^[mM]it\s+/, '').replace(/^[fF]rische\s+/, '');
+    const parts = cleanText.split(/,|\bund\b/).map(part => part.trim());
+    return parts
+      .filter(part => part.length > 0 && !part.toLowerCase().includes('klassiker') && !part.toLowerCase().includes('pfand'))
       .map((name, index) => ({
         id: 9000 + index,
         name: name.charAt(0).toUpperCase() + name.slice(1)
       }));
   };
 
-  const standardZutaten = getStandardZutaten();
+  const standardIngredients = getStandardIngredients();
 
-  const handleToggleExtra = (zutat: Zutat) => {
+  const handleToggleExtra = (ingredient: Ingredient) => {
     setSelectedExtras((prev) =>
-      prev.some((z) => z.id === zutat.id) ? prev.filter((z) => z.id !== zutat.id) : [...prev, zutat]
+      prev.some((item) => item.id === ingredient.id) ? prev.filter((item) => item.id !== ingredient.id) : [...prev, ingredient]
     );
   };
 
-  const handleToggleRemoveStandard = (zutat: { id: number; name: string }) => {
-    setRemovedZutaten((prev) =>
-      prev.some((z) => z.id === zutat.id) ? prev.filter((z) => z.id !== zutat.id) : [...prev, zutat]
+  const handleToggleRemoveStandard = (ingredient: { id: number; name: string }) => {
+    setRemovedIngredients((prev) =>
+      prev.some((item) => item.id === ingredient.id) ? prev.filter((item) => item.id !== ingredient.id) : [...prev, ingredient]
     );
   };
 
@@ -123,7 +121,7 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
 
         <div className="pml-cart-body" style={{ padding: '20px', overflowY: 'auto', maxHeight: '60vh' }}>
           
-          {/* GRÖSSEN */}
+          {/* Sizes */}
           {product.sizes && product.sizes.length > 0 && (
             <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #e2e8f0' }}>
               <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#3182ce' }}>Größe wählen:</h3>
@@ -147,7 +145,7 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             </div>
           )}
 
-          {/* OPTIONEN */}
+          {/* Options */}
           {product.options && product.options.length > 0 && (
             <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #e2e8f0' }}>
               <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#dd6b20' }}>Variante / Nudelsorte wählen:</h3>
@@ -163,18 +161,18 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             </div>
           )}
 
-          {/* STANDARD ZUTATEN ABWÄHLEN */}
-          {standardZutaten.length > 0 && (
+          {/* Standard ingredient removal */}
+          {standardIngredients.length > 0 && (
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#e53e3e' }}>Zutaten abwählen:</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {standardZutaten.map((z) => {
-                  const isRemoved = removedZutaten.some((r) => r.name === z.name);
+                {standardIngredients.map((ingredient) => {
+                  const isRemoved = removedIngredients.some((removedIngredient) => removedIngredient.name === ingredient.name);
                   return (
                     <button
-                      key={z.id}
+                      key={ingredient.id}
                       type="button"
-                      onClick={() => handleToggleRemoveStandard(z)}
+                      onClick={() => handleToggleRemoveStandard(ingredient)}
                       style={{
                         padding: '6px 12px',
                         borderRadius: '20px',
@@ -186,7 +184,7 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
                         textDecoration: isRemoved ? 'line-through' : 'none'
                       }}
                     >
-                      {isRemoved ? '❌ Ohne ' : '✔️ '} {z.name}
+                      {isRemoved ? '❌ Ohne ' : '✔️ '} {ingredient.name}
                     </button>
                   );
                 })}
@@ -194,21 +192,21 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             </div>
           )}
 
-          {/* EXTRAS */}
+          {/* Extras */}
           <h3 style={{ fontSize: '15px', marginBottom: '10px', color: '#319795' }}>Extra Zutaten hinzufügen:</h3>
           {product.ingredients && product.ingredients.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {product.ingredients.map((zutat) => {
-                const isChecked = selectedExtras.some((z) => z.id === zutat.id);
+              {product.ingredients.map((ingredient) => {
+                const isChecked = selectedExtras.some((selectedIngredient) => selectedIngredient.id === ingredient.id);
                 const currentExtraPrice = selectedSize && typeof selectedSize.extraIngredientPrice === 'number'
                   ? selectedSize.extraIngredientPrice
-                  : Number(zutat.extraPrice || 0);
+                  : Number(ingredient.extraPrice || 0);
 
                 return (
-                  <label key={zutat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: isChecked ? '#e6fffa' : 'transparent' }}>
+                  <label key={ingredient.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: isChecked ? '#e6fffa' : 'transparent' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <input type="checkbox" checked={isChecked} onChange={() => handleToggleExtra(zutat)} style={{ width: '16px', height: '16px' }} />
-                      <span style={{ fontWeight: 500 }}>{zutat.name}</span>
+                      <input type="checkbox" checked={isChecked} onChange={() => handleToggleExtra(ingredient)} style={{ width: '16px', height: '16px' }} />
+                      <span style={{ fontWeight: 500 }}>{ingredient.name}</span>
                     </div>
                     <span style={{ color: '#4a5568', fontSize: '14px' }}>+ {currentExtraPrice.toFixed(2).replace('.', ',')} €</span>
                   </label>
@@ -219,12 +217,12 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             <p style={{ color: '#a0aec0', fontSize: '13px' }}>Keine Extras für dieses Produkt verfügbar.</p>
           )}
 
-          {/* ANMERKUNG */}
+          {/* Kitchen comment */}
           <div style={{ marginTop: '20px' }}>
             <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>Anmerkung für die Küche:</h3>
             <textarea
-              value={anmerkung}
-              onChange={(e) => setAnmerkung(e.target.value)}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
               placeholder="z.B. Bitte geschnitten, extra knusprig..."
               style={{ width: '100%', minHeight: '60px', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical', fontSize: '14px', fontFamily: 'inherit' }}
             />
@@ -242,19 +240,19 @@ export const ZutatenModal: React.FC<ZutatenModalProps> = ({ isOpen, product, onC
             type="button"
             className="pml-btn-address-submit"
             onClick={() => {
-              const formattedExtras = selectedExtras.map(z => ({
-                id: z.id,
-                name: z.name,
-                preis: selectedSize && typeof selectedSize.extraIngredientPrice === 'number'
+              const formattedExtras = selectedExtras.map(ingredient => ({
+                id: ingredient.id,
+                name: ingredient.name,
+                price: selectedSize && typeof selectedSize.extraIngredientPrice === 'number'
                   ? selectedSize.extraIngredientPrice
-                  : Number(z.extraPrice || 0)
+                  : Number(ingredient.extraPrice || 0)
               }));
 
               onConfirm(
-                { id: product.id, name: product.name, preis: activeBasePrice },
+                { id: product.id, name: product.name, price: activeBasePrice },
                 formattedExtras,
-                removedZutaten,
-                anmerkung,
+                removedIngredients,
+                comment,
                 selectedSize ? selectedSize.name : null,
                 selectedOption
               );

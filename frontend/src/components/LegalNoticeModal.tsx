@@ -1,11 +1,11 @@
 import React from 'react';
 
-interface ImpressumModalProps {
+interface LegalNoticeModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const ImpressumModal: React.FC<ImpressumModalProps> = ({ isOpen, onClose }) => {
+export const LegalNoticeModal: React.FC<LegalNoticeModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (

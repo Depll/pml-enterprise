@@ -1,32 +1,31 @@
 import React, { useState, useEffect } from 'react';
 
-interface PlzModalProps {
+interface PostcodeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (neuePlz: string) => void;
-  currentPlz: string;
+  onSave: (newPostcode: string) => void;
+  currentPostcode: string;
   errorMessage?: string; 
 }
 
-export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, errorMessage }) => {
-  const [inputValue, setInputValue] = useState<string>(currentPlz);
+export const PostcodeModal: React.FC<PostcodeModalProps> = ({ isOpen, onSave, currentPostcode, errorMessage }) => {
+  const [inputValue, setInputValue] = useState<string>(currentPostcode);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // Setzt den internen Input-Wert zurück, wenn das Modal geöffnet wird
+  // Reset the internal input value whenever the modal opens.
   useEffect(() => {
     if (isOpen) {
-      setInputValue(currentPlz);
+      setInputValue(currentPostcode);
       setErrorMsg('');
     }
-  }, [isOpen, currentPlz]);
+  }, [isOpen, currentPostcode]);
 
   if (!isOpen) return null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Erlaubt nur Ziffern
+    const value = e.target.value.replace(/\D/g, '');
     setInputValue(value);
     
-    // Sobald der User tippt, löschen wir den Frontend-Fehler
     if (errorMsg) {
       setErrorMsg('');
     }
@@ -42,7 +41,7 @@ export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, 
     onSave(inputValue); 
   };
 
-  const anzuzeigenderFehler = errorMsg || errorMessage;
+  const displayedError = errorMsg || errorMessage;
 
   return (
     <div className="pml-modal-overlay">
@@ -58,14 +57,14 @@ export const PlzModal: React.FC<PlzModalProps> = ({ isOpen, onSave, currentPlz, 
           Gib deine Postleitzahl ein, um zu prüfen, ob wir deine Bestellung zu dir nach Hause liefern können.
         </p>
 
-        <p className={`pml-plz-error-msg ${anzuzeigenderFehler ? '' : 'pml-hidden'}`}>
-          {anzuzeigenderFehler}
+        <p className={`pml-postcode-error-msg ${displayedError ? '' : 'pml-hidden'}`}>
+          {displayedError}
         </p>
 
         <div className="pml-modal-input-container">
           <input 
             type="text" 
-            id="plz-input" 
+            id="postcode-input" 
             placeholder="Deine PLZ (z.B. 51373)" 
             value={inputValue}
             onChange={handleInputChange}

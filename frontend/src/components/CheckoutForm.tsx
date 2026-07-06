@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
+import { useState, type SubmitEvent } from 'react';
 
 interface CheckoutFormProps {
   isOpen: boolean;
   onClose: () => void;
   totalPrice: number;
   cartItems: any[];
-  currentPlz: string;
+  currentPostcode: string;
   onOrderSuccess: () => void;
 }
 
 export const CheckoutForm: React.FC<CheckoutFormProps> = ({ 
   isOpen, 
   onClose, 
-  currentPlz, 
+  currentPostcode, 
   totalPrice, 
   cartItems,
   onOrderSuccess
 }) => {
   const [formData, setFormData] = useState({
     name: '',
-    strasse: '',
-    hausnummer: '',
-    telefon: '',
+    street: '',
+    houseNumber: '',
+    phone: '',
     email: '',
-    anmerkung: ''
+    comment: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -36,11 +36,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
     if (!formData.name.trim()) newErrors.name = 'Name wird benötigt';
-    if (!formData.strasse.trim()) newErrors.strasse = 'Straße wird benötigt';
-    if (!formData.hausnummer.trim()) newErrors.hausnummer = 'Nr. wird benötigt';
+    if (!formData.street.trim()) newErrors.street = 'Straße wird benötigt';
+    if (!formData.houseNumber.trim()) newErrors.houseNumber = 'Nr. wird benötigt';
     
-    if (!phoneRegex.test(formData.telefon)) {
-      newErrors.telefon = 'Ungültige Telefonnummer';
+    if (!phoneRegex.test(formData.phone)) {
+      newErrors.phone = 'Ungültige Telefonnummer';
     }
     if (formData.email && !emailRegex.test(formData.email)) {
       newErrors.email = 'Ungültige E-Mail-Adresse';
@@ -50,39 +50,39 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     const mappedPositions = cartItems.map((item) => {
-      const activeExtras = item.gewaehlteZutaten || [];
-      const activeRemoved = item.entfernteZutaten || [];
+      const activeExtras = item.selectedIngredients || item.selectedExtras || item.gewaehlteZutaten || [];
+      const activeRemoved = item.removedIngredients || item.removedZutaten || item.entfernteZutaten || [];
 
       return {
         productId: Number(item.id), 
-        quantity: Number(item.menge || item.quantity || 1), 
-        priceSnapshot: Number(item.preis || item.price || 0), 
-        comment: item.anmerkung?.trim() || undefined, 
+        quantity: Number(item.quantity || item.menge || 1), 
+        priceSnapshot: Number(item.price || item.preis || 0), 
+        comment: (item.comment || item.anmerkung)?.trim() || undefined, 
         selectedSize: item.selectedSize || undefined, 
         selectedOption: item.selectedOption || undefined,
         selectedIngredientsIds: activeExtras.length > 0 
-          ? activeExtras.map((z: any) => Number(z.id)) 
+          ? activeExtras.map((ingredient: any) => Number(ingredient.id)) 
           : undefined,
         removedIngredientsIds: activeRemoved.length > 0 
-          ? activeRemoved.map((z: any) => Number(z.id)) 
+          ? activeRemoved.map((ingredient: any) => Number(ingredient.id)) 
           : undefined,
       };
     });
 
     const payload = {
       customerName: formData.name,
-      street: formData.strasse,
-      houseNumber: formData.hausnummer,
-      postcode: String(currentPlz).trim(), 
+      street: formData.street,
+      houseNumber: formData.houseNumber,
+      postcode: String(currentPostcode).trim(), 
       city: 'Leverkusen',
-      phone: formData.telefon,
+      phone: formData.phone,
       email: formData.email?.trim() || undefined, 
-      deliveryNote: formData.anmerkung?.trim() || undefined,
+      deliveryNote: formData.comment?.trim() || undefined,
       totalPrice: Number(totalPrice), 
       positions: mappedPositions 
     };
@@ -97,14 +97,14 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       });
 
       if (response.ok) {
-        const neueBestellung = await response.json();
+        const newOrder = await response.json();
         
         alert('Bestellung erfolgreich abgeschickt!');
         onOrderSuccess(); 
         onClose();        
 
-        localStorage.setItem('milano_last_order_id', neueBestellung.id.toString());
-        window.location.href = `http://localhost:5173/?id=${neueBestellung.id}`;
+        localStorage.setItem('milano_last_order_id', newOrder.id.toString());
+        window.location.href = `http://localhost:5173/?id=${newOrder.id}`;
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error("NestJS Validierungsfehler:", errorData);
@@ -143,21 +143,21 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 <label>Straße *</label>
                 <input 
                   type="text" 
-                  className={`pml-form-input ${errors.strasse ? 'pml-input-error' : ''}`}
-                  value={formData.strasse}
-                  onChange={(e) => setFormData({...formData, strasse: e.target.value})}
+                  className={`pml-form-input ${errors.street ? 'pml-input-error' : ''}`}
+                  value={formData.street}
+                  onChange={(e) => setFormData({...formData, street: e.target.value})}
                 />
-                {errors.strasse && <span className="pml-error-text">{errors.strasse}</span>}
+                {errors.street && <span className="pml-error-text">{errors.street}</span>}
               </div>
               <div className="pml-form-group" style={{ flex: 1 }}>
                 <label>Nr. *</label>
                 <input 
                   type="text" 
-                  className={`pml-form-input ${errors.hausnummer ? 'pml-input-error' : ''}`}
-                  value={formData.hausnummer}
-                  onChange={(e) => setFormData({...formData, hausnummer: e.target.value})}
+                  className={`pml-form-input ${errors.houseNumber ? 'pml-input-error' : ''}`}
+                  value={formData.houseNumber}
+                  onChange={(e) => setFormData({...formData, houseNumber: e.target.value})}
                 />
-                {errors.hausnummer && <span className="pml-error-text">{errors.hausnummer}</span>}
+                {errors.houseNumber && <span className="pml-error-text">{errors.houseNumber}</span>}
               </div>
             </div>
 
@@ -167,7 +167,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 <input 
                   type="text" 
                   className="pml-form-input"
-                  value={currentPlz}
+                  value={currentPostcode}
                   disabled 
                 />
               </div>
@@ -188,11 +188,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               <input 
                 type="text" 
                 placeholder="z.B. 01761234567"
-                className={`pml-form-input ${errors.telefon ? 'pml-input-error' : ''}`}
-                value={formData.telefon}
-                onChange={(e) => setFormData({...formData, telefon: e.target.value})}
+                className={`pml-form-input ${errors.phone ? 'pml-input-error' : ''}`}
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
               />
-              {errors.telefon && <span className="pml-error-text">{errors.telefon}</span>}
+              {errors.phone && <span className="pml-error-text">{errors.phone}</span>}
             </div>
 
             <div className="pml-form-group">
@@ -212,8 +212,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 className="pml-form-input" 
                 rows={3}
                 placeholder="z.B. Bitte im Erdgeschoss klingeln..."
-                value={formData.anmerkung}
-                onChange={(e) => setFormData({...formData, anmerkung: e.target.value})}
+                value={formData.comment}
+                onChange={(e) => setFormData({...formData, comment: e.target.value})}
               />
             </div>
 
