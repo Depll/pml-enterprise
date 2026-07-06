@@ -33,14 +33,13 @@ services:
           name: milano-db
           property: database
 
-  # 2. REACT FRONTEND (Korrigiert für Render)
-  - type: web_service # Das ist der richtige Typ für Blueprints
+  # 2. REACT FRONTEND
+  - type: static      # Zurück zu static
     name: milano-frontend
-    env: static       # Das sagt Render, dass es eine Static Site ist
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishPath: dist
+    publishDir: dist  # Das richtige Feld für 'type: static' ist publishDir
     envVars:
       - key: VITE_API_URL
         fromService:
