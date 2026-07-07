@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiService } from '../services/api';
 
 // ==========================================
 // TYPE DEFINITIONS & INTERFACES
@@ -98,41 +99,24 @@ export const AdminDashboard: React.FC = () => {
   // ==========================================
 
   const fetchOrders = async () => {
-    try {
-      const response = await fetch('http://localhost:3000/orders');
-      if (response.ok) {
-        const data = await response.json();
-        const safeData = Array.isArray(data) ? data : [];
-        const currentOpenCount = safeData.filter((o: Order) => o.status === 'open').length;
+    const safeData = await apiService.fetchOrdersSafe();
+    const currentOpenCount = safeData.filter((o: any) => o.status === 'open').length;
 
-        setOrders((prevOrders) => {
-          const previousOpenCount = prevOrders.filter((o) => o.status === 'open').length;
-          if (soundEnabled && prevOrders.length > 0 && currentOpenCount > previousOpenCount) {
-            playNotificationSound();
-          }
-          return safeData;
-        });
+    setOrders((prevOrders) => {
+      const previousOpenCount = prevOrders.filter((o) => o.status === 'open').length;
+      if (soundEnabled && prevOrders.length > 0 && currentOpenCount > previousOpenCount) {
+        playNotificationSound();
       }
-    } catch (error) {
-      console.error('Failed fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
+      return safeData;
+    });
+    setLoading(false);
   };
 
   const fetchMenu = async () => {
-    try {
-      const response = await fetch('http://localhost:3000/menu');
-      if (response.ok) {
-        const data = await response.json();
-        const safeData = Array.isArray(data) ? data : [];
-        setCategories(safeData);
-        if (safeData.length > 0 && newProductCategoryId === '') {
-          setNewProductCategoryId(safeData[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Failed fetching menu structure:', error);
+    const safeData = await apiService.fetchMenu();
+    setCategories(safeData);
+    if (safeData.length > 0 && newProductCategoryId === '') {
+      setNewProductCategoryId(safeData[0].id);
     }
   };
 
@@ -276,16 +260,9 @@ export const AdminDashboard: React.FC = () => {
   // ==========================================
 
   const handleUpdateStatus = async (orderId: string, newStatus: string, cancellationReason?: string) => {
-    try {
-      const response = await fetch(`http://localhost:3000/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, stornoReason: cancellationReason || undefined }),
-      });
-      if (response.ok) fetchOrders();
-    } catch (error) {
-      console.error('Network error during status transition:', error);
-    }
+    // Ruft die Funktion aus der api.ts auf
+    const success = await apiService.updateOrderStatus(orderId, newStatus, cancellationReason);
+    if (success) fetchOrders(); // Lädt die Bestellungen neu, wenn es geklappt hat
   };
 
   const handleCancelOrder = (orderId: string) => {
@@ -303,29 +280,13 @@ export const AdminDashboard: React.FC = () => {
   // ==========================================
 
   const handleUpdateProduct = async (id: number, updatedData: Partial<Product>) => {
-    try {
-      const response = await fetch(`http://localhost:3000/menu/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData),
-      });
-      if (response.ok) fetchMenu();
-    } catch (error) {
-      console.error('Failed mutating menu product entries:', error);
-    }
+    const success = await apiService.updateProduct(id, updatedData);
+    if (success) fetchMenu();
   };
 
   const handleUpdateIngredient = async (id: number, updatedData: { name?: string; extraPrice?: number }) => {
-    try {
-      const response = await fetch(`http://localhost:3000/menu/ingredient/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData),
-      });
-      if (response.ok) fetchMenu();
-    } catch (error) {
-      console.error('Failed modifying target extra asset:', error);
-    }
+    const success = await apiService.updateIngredient(id, updatedData);
+    if (success) fetchMenu();
   };
 
   const handleAddIngredient = async (productId: number) => {
@@ -340,50 +301,28 @@ export const AdminDashboard: React.FC = () => {
     const parsedPrice = parseFloat(priceText.replace(',', '.'));
     const finalPrice = isNaN(parsedPrice) ? 0.0 : parsedPrice;
 
-    try {
-      const response = await fetch(`http://localhost:3000/menu/${productId}/ingredient`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name,
-          price: finalPrice
-        }),
-      });
+    // Nutzt jetzt Axios über die api.ts
+    const success = await apiService.addIngredient(productId, name, finalPrice);
 
-      if (response.ok) {
-        setNewIngredientNames(prev => ({ ...prev, [productId]: '' }));
-        setNewIngredientPrices(prev => ({ ...prev, [productId]: '' }));
-        fetchMenu();
-      } else {
-        alert('Fehler beim Speichern der Zutat auf dem Server.');
-      }
-    } catch (error) {
-      console.error('Failed appending new ingredient dependency:', error);
+    if (success) {
+      setNewIngredientNames(prev => ({ ...prev, [productId]: '' }));
+      setNewIngredientPrices(prev => ({ ...prev, [productId]: '' }));
+      fetchMenu();
+    } else {
+      alert('Fehler beim Speichern der Zutat auf dem Server.');
     }
   };
 
   const handleDeleteIngredient = async (id: number) => {
     if (!window.confirm('Zutat unumkehrbar löschen?')) return;
-    try {
-      const response = await fetch('http://localhost:3000/menu/ingredient/' + id, {
-        method: 'DELETE',
-      });
-      if (response.ok) fetchMenu();
-    } catch (error) {
-      console.error('Deletion error on target extra asset:', error);
-    }
+    const success = await apiService.deleteIngredient(id);
+    if (success) fetchMenu();
   };
 
   const handleDeleteProduct = async (id: number) => {
     if (!window.confirm('Gericht aus Speisekarte löschen?')) return;
-    try {
-      const response = await fetch('http://localhost:3000/menu/' + id, {
-        method: 'DELETE',
-      });
-      if (response.ok) fetchMenu();
-    } catch (error) {
-      console.error('Deletion query failed on core product resource:', error);
-    }
+    const success = await apiService.deleteProduct(id);
+    if (success) fetchMenu();
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -395,48 +334,45 @@ export const AdminDashboard: React.FC = () => {
 
     const generatedSku = `PROD-${Date.now()}`;
 
+    // Hier bauen wir das Payload-Objekt wie gewohnt
+    const payload: Record<string, unknown> = {
+      sku: generatedSku,
+      name: newProductName,
+      description: newProductDescription,
+      price: parseFloat(newProductPrice.replace(',', '.')),
+      categoryId: Number(newProductCategoryId),
+      // Wenn dein Backend 'is_active' (Spaltenname) statt 'isActive' erwartet,
+      // schreiben wir es hier direkt so rein, damit die DB es versteht:
+      is_active: true, 
+    };
+
+    if (isPizzaCategory && newProductSizes.length > 0) {
+      payload.sizes = newProductSizes.map((size) => ({
+        name: size.name,
+        price: parseFloat(size.price.replace(',', '.')) || 0,
+        extraIngredientPrice: parseFloat(size.extraIngredientPrice.replace(',', '.')) || 0,
+      }));
+    }
+
+    if ((isSalateCategory || isNudelgerichteCategory) && newProductOptions.length > 0) {
+      payload.options = newProductOptions;
+    }
+
     try {
-      const payload: Record<string, unknown> = {
-        sku: generatedSku,
-        name: newProductName,
-        description: newProductDescription,
-        price: parseFloat(newProductPrice.replace(',', '.')),
-        categoryId: Number(newProductCategoryId),
-        isActive: true,
-      };
+      // API aufrufen (wirft im Fehlerfall die Servermeldung per throw)
+      await apiService.addProduct(payload);
 
-      if (isPizzaCategory && newProductSizes.length > 0) {
-        payload.sizes = newProductSizes.map((size) => ({
-          name: size.name,
-          price: parseFloat(size.price.replace(',', '.')) || 0,
-          extraIngredientPrice: parseFloat(size.extraIngredientPrice.replace(',', '.')) || 0,
-        }));
-      }
-
-      if ((isSalateCategory || isNudelgerichteCategory) && newProductOptions.length > 0) {
-        payload.options = newProductOptions;
-      }
-
-      const response = await fetch('http://localhost:3000/menu', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        setNewProductName('');
-        setNewProductDescription('');
-        setNewProductPrice('');
-        setNewProductSizes([]);
-        setNewProductOptions([]);
-        setNewProductOptionText('');
-        fetchMenu(); 
-      } else {
-        const errResult = await response.json();
-        alert(`Server-Fehler (400): ${JSON.stringify(errResult.message || errResult)}`);
-      }
-    } catch (error) {
-      console.error(error);
+      // State zurücksetzen bei Erfolg
+      setNewProductName('');
+      setNewProductDescription('');
+      setNewProductPrice('');
+      setNewProductSizes([]);
+      setNewProductOptions([]);
+      setNewProductOptionText('');
+      fetchMenu(); 
+    } catch (errResult: any) {
+      // Fehlermeldung vom NestJS-Backend anzeigen
+      alert(`Server-Fehler: ${JSON.stringify(errResult.message || errResult)}`);
     }
   };
 

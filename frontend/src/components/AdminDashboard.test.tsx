@@ -5,6 +5,8 @@ import { http, HttpResponse } from 'msw';
 import { AdminDashboard } from './AdminDashboard';
 import '@testing-library/jest-dom';
 
+// Wichtig: Da api.ts nun 'is_active' vom Server erwartet, um es auf 'isActive' 
+// zu mappen, muss unser Mock-Server hier 'is_active' ausliefern.
 const mockMenuData = [
   {
     id: 1,
@@ -16,7 +18,7 @@ const mockMenuData = [
         name: 'Pizza Margherita',
         description: 'mit Tomatensauce',
         price: 7.50,
-        isActive: true,
+        is_active: true, // Hier korrigiert für das api.ts-Mapping!
         ingredients: [
           { id: 1, name: 'Extra Käse', extraPrice: 1.50 }
         ]
@@ -201,5 +203,4 @@ describe('AdminDashboard Integrations-Tests', () => {
 
     vi.useRealTimers();
   });
-
 });

@@ -1,4 +1,5 @@
 import { useState, type SubmitEvent } from 'react';
+import { apiService } from '../services/api';
 
 interface CheckoutFormProps {
   isOpen: boolean;
@@ -88,31 +89,28 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     };
 
     try {
-      const response = await fetch('http://localhost:3000/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      // 1. Nutze den neuen apiService statt fetch
+      const newOrder = await apiService.createOrder(payload);
 
-      if (response.ok) {
-        const newOrder = await response.json();
-        
-        alert('Bestellung erfolgreich abgeschickt!');
-        onOrderSuccess(); 
-        onClose();        
+      alert('Bestellung erfolgreich abgeschickt!');
+      onOrderSuccess(); 
+      onClose();        
 
-        localStorage.setItem('milano_last_order_id', newOrder.id.toString());
-        window.location.href = `http://localhost:5173/?id=${newOrder.id}`;
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("NestJS Validierungsfehler:", errorData);
-        alert(`Fehler beim Senden: ${Array.isArray(errorData.message) ? errorData.message.join(', ') : (errorData.message || 'Bitte Eingaben prüfen!')}`);
-      }
-    } catch (error) {
-      console.error('Verbindungsfehler zum Backend:', error);
-      alert('Der Server antwortet nicht. Läuft das NestJS-Backend?');
+      localStorage.setItem('milano_last_order_id', newOrder.id.toString());
+      
+      // 2. DYNAMISCHE WEITERLEITUNG statt festem localhost:5173
+      // window.location.origin nimmt automatisch die aktuelle Domain (egal ob localhost oder Render!)
+      window.location.href = `${window.location.origin}/?id=${newOrder.id}`;
+
+    } catch (errorData: any) {
+      console.error("NestJS Validierungsfehler:", errorData);
+      alert(
+        `Fehler beim Senden: ${
+          Array.isArray(errorData.message) 
+            ? errorData.message.join(', ') 
+            : (errorData.message || 'Bitte Eingaben prüfen!')
+        }`
+      );
     }
   };
 

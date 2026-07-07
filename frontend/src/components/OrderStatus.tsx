@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiService } from '../services/api';
 
 interface Order {
   id: string | number;
@@ -26,22 +27,19 @@ export const OrderStatus: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/orders');
-      if (response.ok) {
-        const orders: Order[] = await response.json();
-        
-        const foundOrder = orders.find(o => String(o.id) === String(orderId));
-        
-        if (foundOrder) {
-          setOrder(foundOrder);
-          setError(null);
-          calculateTimeLeft(foundOrder.createdAt, foundOrder.status);
-        } else {
-          setError('Bestellung nicht gefunden.');
-        }
+      // 1. Nutze die zentrale Axios-Logik
+      const orders = await apiService.fetchOrdersSafe();
+      
+      // 2. Deine spezifische UI-Suchlogik bleibt genau so, wie sie war
+      const foundOrder = orders.find(o => String(o.id) === String(orderId));
+      
+      if (foundOrder) {
+        setOrder(foundOrder);
+        setError(null);
+        calculateTimeLeft(foundOrder.createdAt, foundOrder.status);
+      } else {
+        setError('Bestellung nicht gefunden.');
       }
-    } catch (err) {
-      console.error('Fehler beim Laden des Status:', err);
     } finally {
       setLoading(false);
     }

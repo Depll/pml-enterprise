@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { IngredientsModal } from './IngredientsModal';
+import { apiService } from '../services/api'; // Pfad anpassen, falls nötig
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 interface MenuProps {
   activeCategory: string;
@@ -50,17 +50,15 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    const fetchMenu = async () => {
+    const fetchMenuData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${API_URL}/menu`); 
         
-        if (!response.ok) {
-          throw new Error('Fehler beim Laden der Speisekarte');
-        }
+        // 1. Nutze die zentrale fetchMenu-Funktion aus der api.ts
+        const data = await apiService.fetchMenu();
         
-        const data = await response.json();
-        setCategoriesData(data);
+        // TypeScript-Typ-Sicherheit erzwingen (falls Typen leicht abweichen)
+        setCategoriesData(data as any);
         setError(null);
       } catch (err: any) {
         console.error(err);
@@ -70,7 +68,7 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
       }
     };
 
-    fetchMenu();
+    fetchMenuData();
   }, []);
 
   const handleOpenModal = (product: Product) => {

@@ -11,6 +11,7 @@ import { PrivacyModal } from './components/PrivacyModal';
 import { CheckoutForm } from './components/CheckoutForm';
 import { AdminDashboard } from './components/AdminDashboard'; 
 import { OrderStatus } from './components/OrderStatus'; 
+import { apiService } from './services/api'; // Pfad anpassen, falls nötig
 
 function App() {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false); 
@@ -47,14 +48,8 @@ function App() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/delivery-areas/check/${newPostcode}`);
-      
-      if (!response.ok) {
-        setPostcodeError('Fehler bei der Verbindung mit dem Server.');
-        return;
-      }
-      
-      const data = await response.json();
+      // Nutze jetzt den zentralen apiService statt des manuellen fetch
+      const data = await apiService.checkPostcode(newPostcode);
 
       if (data.erlaubt || data.allowed) {
         setPostcode(newPostcode);
@@ -65,7 +60,6 @@ function App() {
         setPostcodeError('Wir beliefern aktuell nur Leverkusen!');
       }
     } catch (error) {
-      console.error('Fehler beim API-Aufruf:', error);
       setPostcodeError('Verbindung zum Server fehlgeschlagen.');
     }
   };

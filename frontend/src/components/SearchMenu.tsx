@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiService } from '../services/api'; // Pfad anpassen, falls nötig
 
 interface SearchMenuProps {
   activeCategory: string;
@@ -21,21 +22,16 @@ export const SearchMenu: React.FC<SearchMenuProps> = ({
 
   useEffect(() => {
     const fetchCategories = async () => {
-      try {
-        const response = await fetch('http://localhost:3000/menu'); 
-        if (response.ok) {
-          const data = await response.json();
-          
-          const categories = data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            label: item.label || item.name, 
-          }));
-          setDynamicCategories(categories);
-        }
-      } catch (err) {
-        console.error('Fehler beim Laden der Filter-Kategorien:', err);
-      }
+      // 1. Nutze die zentrale fetchMenu-Funktion aus der api.ts
+      const data = await apiService.fetchMenu();
+      
+      // 2. Deine Mapping-Logik für die Filter-Labels bleibt genau gleich
+      const categories = data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        label: item.label || item.name, 
+      }));
+      setDynamicCategories(categories);
     };
 
     fetchCategories();
