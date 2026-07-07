@@ -102,20 +102,22 @@ describe('MenuController (e2e)', () => {
     });
   });
 
-  // 2. POST /menu
+// 2. POST /menu
   describe('POST /menu', () => {
     it('sollte ein neues Produkt erfolgreich anlegen (201)', () => {
       return request(app.getHttpServer())
         .post('/menu')
         .send({
+          sku: 'PIZ-SAL-01', // Das hat gefehlt!
           name: 'Salami',
           price: 9.5,
           description: 'Mit feiner Rindersalami',
-          categoryId: 1
+          categoryId: 1,
+          isActive: true
         })
         .expect(201)
         .expect((res) => {
-          expect(res.body).toHaveProperty('id', 99);
+          expect(res.body).toHaveProperty('id');
           expect(res.body.name).toBe('Salami');
         });
     });

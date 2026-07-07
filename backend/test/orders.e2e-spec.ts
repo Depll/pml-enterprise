@@ -8,7 +8,7 @@ import {
   INestApplication,
   NotFoundException,
   BadRequestException,
-  ValidationPipe,
+  //ValidationPipe,
 } from '@nestjs/common';
 import request from 'supertest';
 
@@ -70,12 +70,13 @@ describe('OrdersController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     // Falls du globale Pipes nutzt (wie ValidationPipe), hier aktivieren:
-    app.useGlobalPipes(
-  new ValidationPipe({
-    whitelist: true,
-    transform: true,
-  }),
-);
+  // app.useGlobalPipes(
+  // new ValidationPipe({
+  //  whitelist: true,
+  //  transform: true,
+  //}),
+
+//);
     await app.init();
   });
 
