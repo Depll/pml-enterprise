@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install --include=dev && npm run build
-    startCommand: node dist/main.js
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
@@ -51,3 +51,4 @@ services:
 databases:
   - name: milano-db
     plan: free
+    

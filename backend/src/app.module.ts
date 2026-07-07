@@ -13,7 +13,7 @@ import { OrderPosition } from './database/entities/order-position.entity';
 // Services & Module importieren
 import { SeedService } from './database/seeds/seed.service';
 import { MenuModule } from './menu/menu.module';
-import { DeliveryAreaModule } from './liefergebiet/delivery-area.module';
+import { DeliveryAreaModule } from './delivery-area/delivery-area.module';
 import { OrdersModule } from './orders/orders.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -22,7 +22,11 @@ import { AppService } from './app.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env', // Hier ist der korrekte Pfad zu deiner .env-Datei!
+      envFilePath: [
+        '../.env', // Pfad wenn aus dem backend-Ordner gestartet (npm run start:dev)
+        '.env', // Lokaler Fallback
+        './.env',
+      ], // Hier ist der korrekte Pfad zu deiner .env-Datei!
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
