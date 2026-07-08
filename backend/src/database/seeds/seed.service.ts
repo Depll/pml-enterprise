@@ -67,6 +67,15 @@ export class SeedService {
   }
 
   async runSeed() {
+    const productCount = await this.productRepository.count();
+
+    if (productCount > 0) {
+      console.log(
+        '🌱 Datenbank enthält bereits Daten. Seeding wird übersprungen.',
+      );
+      return; // Beendet die Methode vorzeitig, damit kein Fehler fliegt
+    }
+
     console.log(
       'Starte Enterprise-Datenbank-Seeding mit Größen und Optionen...',
     );
