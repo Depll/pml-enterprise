@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TelegrafModule } from 'nestjs-telegraf';
+import { TelegramModule } from './telegram/telegram.module';
 
 // Neue englische Entities importieren
 import { CategoryEntity } from './database/entities/category.entity';
@@ -51,9 +53,17 @@ import { AppService } from './app.service';
       IngredientEntity,
       DeliveryAreaEntity,
     ]),
+    TelegrafModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        token: configService.get<string>('TELEGRAM_BOT_TOKEN') || '',
+      }),
+      inject: [ConfigService],
+    }),
     MenuModule,
     DeliveryAreaModule,
     OrdersModule,
+    TelegramModule, // <-- Hier ist dein neues Modul jetzt sauber registriert!
   ],
   controllers: [AppController],
   providers: [AppService, SeedService],
