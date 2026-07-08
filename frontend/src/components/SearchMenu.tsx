@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api'; // Pfad anpassen, falls nötig
+import React from 'react';
 
 interface SearchMenuProps {
   activeCategory: string;
   onCategoryChange: (category: string) => void;
   onSearchChange: (searchTerm: string) => void;
+  menuData: any[]; // Empfängt die zentralen Menüdaten
 }
 
 interface BackendCategory {
@@ -16,26 +16,16 @@ interface BackendCategory {
 export const SearchMenu: React.FC<SearchMenuProps> = ({ 
   activeCategory, 
   onCategoryChange,
-  onSearchChange 
+  onSearchChange,
+  menuData // Aus den Props extrahiert
 }) => {
-  const [dynamicCategories, setDynamicCategories] = useState<BackendCategory[]>([]);
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      // 1. Nutze die zentrale fetchMenu-Funktion aus der api.ts
-      const data = await apiService.fetchMenu();
-      
-      // 2. Deine Mapping-Logik für die Filter-Labels bleibt genau gleich
-      const categories = data.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        label: item.label || item.name, 
-      }));
-      setDynamicCategories(categories);
-    };
-
-    fetchCategories();
-  }, []);
+  // Die Kategorien werden hier direkt synchron aus den übergebenen menuData generiert
+  const dynamicCategories: BackendCategory[] = (menuData || []).map((item: any) => ({
+    id: item.id,
+    name: item.name,
+    label: item.label || item.name, 
+  }));
 
   return (
     <section className="pml-search-section">

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom'; // Wichtig für URLs
 import { useCart } from './context/CartContext';
 import { Hero } from './components/Hero';
 import { SearchMenu } from './components/SearchMenu';
@@ -11,10 +12,11 @@ import { PrivacyModal } from './components/PrivacyModal';
 import { CheckoutForm } from './components/CheckoutForm';
 import { AdminDashboard } from './components/AdminDashboard'; 
 import { OrderStatus } from './components/OrderStatus'; 
-import { apiService } from './services/api'; // Pfad anpassen, falls nötig
+import { apiService } from './services/api';
 
 function App() {
-  const [isAdminMode, setIsAdminMode] = useState<boolean>(false); 
+  const navigate = useNavigate(); // Hook für den echten URL-Wechsel
+  
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isPostcodeModalOpen, setIsPostcodeModalOpen] = useState<boolean>(false);
   const [isLegalNoticeOpen, setIsLegalNoticeOpen] = useState<boolean>(false);
@@ -26,6 +28,9 @@ function App() {
   const [postcode, setPostcode] = useState<string>(() => {
     return localStorage.getItem('milano_postcode') || localStorage.getItem('milano_plz') || '51373';
   });
+
+  const [menuData, setMenuData] = useState<any[]>([]);
+  const [isMenuLoading, setIsMenuLoading] = useState<boolean>(true);
 
   const cartContext = useCart();
   const cartItems = cartContext?.cart || [];
@@ -41,6 +46,21 @@ function App() {
   const lastOrderId = localStorage.getItem('milano_last_order_id');
   const [hideBanner, setHideBanner] = useState<boolean>(false);
 
+  useEffect(() => {
+    const loadMenuData = async () => {
+      try {
+        setIsMenuLoading(true);
+        const data = await apiService.fetchMenu();
+        setMenuData(data);
+      } catch (err) {
+        console.error('Fehler beim zentralen Laden des Menüs:', err);
+      } finally {
+        setIsMenuLoading(false);
+      }
+    };
+    loadMenuData();
+  }, []);
+
   const handlePostcodeSave = async (newPostcode: string) => {
     if (!/^\d{5}$/.test(newPostcode)) {
       setPostcodeError('Bitte eine gültige 5-stellige PLZ eingeben.');
@@ -48,9 +68,7 @@ function App() {
     }
 
     try {
-      // Nutze jetzt den zentralen apiService statt des manuellen fetch
       const data = await apiService.checkPostcode(newPostcode);
-
       if (data.erlaubt || data.allowed) {
         setPostcode(newPostcode);
         localStorage.setItem('milano_postcode', newPostcode);
@@ -60,145 +78,89 @@ function App() {
         setPostcodeError('Wir beliefern aktuell nur Leverkusen!');
       }
     } catch (error) {
-      setPostcodeError('Verbindung zum Server fehlgeschlagen.');
+      setPostcodeError('Verbindung zum Server failed.');
     }
   };
 
+  // Behält deine bestehende URL-Logik für Kunden-Bestell-Tracking bei
   if (isCustomerTracking) {
     return <OrderStatus />;
   }
 
-  if (isAdminMode) {
-    return (
-      <div>
-        <div style={{ padding: '10px', backgroundColor: '#2d3748', borderBottom: '1px solid #4a5568' }}>
-          <button 
-            onClick={() => setIsAdminMode(false)}
-            style={{ padding: '6px 12px', backgroundColor: '#4a5568', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            ← Zurück zum Pizza-Shop
-          </button>
-        </div>
-        <AdminDashboard />
-      </div>
-    );
-  }
-
   return (
-    <div className="pml-app-wrapper">
-      
-      {lastOrderId && !hideBanner && (
-        <div style={{ 
-          backgroundColor: '#f6ad55', 
-          color: '#1a202c', 
-          padding: '12px', 
-          textAlign: 'center', 
-          fontWeight: 'bold', 
-          fontSize: '14px', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          gap: '15px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          <span>🛵 Du hast eine aktive Bestellung laufen!</span>
-          <a href={`/?id=${lastOrderId}`} style={{ color: '#1a202c', textDecoration: 'underline', fontWeight: '900' }}>
-            Hier live verfolgen →
-          </a>
-          <button 
-            onClick={() => setHideBanner(true)} 
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', marginLeft: '25px', color: '#1a202c', fontWeight: 'bold' }}
-            title="Diesen Hinweis ausblenden"
+    <Routes>
+      {/* PFAD 1: Die Hauptseite des Pizza-Shops (Kundenansicht) */}
+      <Route path="/" element={
+        <div className="pml-app-wrapper">
+          {lastOrderId && !hideBanner && (
+            <div style={{ 
+              backgroundColor: '#f6ad55', color: '#1a202c', padding: '12px', 
+              textAlign: 'center', fontWeight: 'bold', fontSize: '14px', 
+              display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px'
+            }}>
+              <span>🛵 Du hast eine aktive Bestellung laufen!</span>
+              <a href={`/?id=${lastOrderId}`} style={{ color: '#1a202c', textDecoration: 'underline', fontWeight: '900' }}>
+                Hier live verfolgen →
+              </a>
+              <button onClick={() => setHideBanner(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a202c', fontWeight: 'bold' }}>
+                ✕
+              </button>
+            </div>
+          )}
+
+          <Hero 
+            onOpenCart={() => setIsCartOpen(true)} 
+            onOpenPostcode={() => { setPostcodeError(''); setIsPostcodeModalOpen(true); }} 
+            currentPostcode={postcode}
+          />
+          
+          <SearchMenu activeCategory={activeCategory} onCategoryChange={setActiveCategory} onSearchChange={setSearchTerm} menuData={menuData} />
+          <Menu activeCategory={activeCategory} searchTerm={searchTerm} menuData={menuData} isLoading={isMenuLoading} />
+          <Footer onOpenLegalNotice={() => setIsLegalNoticeOpen(true)} onOpenPrivacy={() => setIsPrivacyOpen(true)} />
+
+          <LegalNoticeModal isOpen={isLegalNoticeOpen} onClose={() => setIsLegalNoticeOpen(false)} />
+          <PrivacyModal isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} />
+
+          <CheckoutForm 
+            isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)}
+            totalPrice={checkoutPrice > 0 ? checkoutPrice : totalPrice * 0.9}
+            cartItems={cartItems} currentPostcode={postcode} onOrderSuccess={clearCart}
+          />
+
+          <PostcodeModal isOpen={isPostcodeModalOpen} onClose={() => setIsPostcodeModalOpen(false)} onSave={handlePostcodeSave} currentPostcode={postcode} errorMessage={postcodeError} />
+          <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onOpenCheckout={(finalPrice) => { setCheckoutPrice(finalPrice); setIsCartOpen(false); setIsCheckoutOpen(true); }} />
+
+          {/* Der Login-Button leitet jetzt sauber auf /kueche weiter */}
+          <button
+            onClick={() => navigate('/kueche')}
+            style={{
+              position: 'fixed', bottom: '10px', right: '10px', opacity: 0.3,
+              backgroundColor: '#000', color: '#fff', border: 'none',
+              borderRadius: '4px', padding: '4px 8px', fontSize: '10px', cursor: 'pointer', zIndex: 9999
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.3')}
           >
-            ✕
+            🔑 Küchen-Login
           </button>
         </div>
-      )}
+      } />
 
-      <Hero 
-        onOpenCart={() => setIsCartOpen(true)} 
-        onOpenPostcode={() => {
-          setPostcodeError('');
-          setIsPostcodeModalOpen(true);
-        }} 
-        currentPostcode={postcode}
-      />
-      
-      <SearchMenu 
-        activeCategory={activeCategory}
-        onCategoryChange={(cat) => setActiveCategory(cat)}
-        onSearchChange={(term) => setSearchTerm(term)}
-      />
-      
-      <Menu 
-        activeCategory={activeCategory} 
-        searchTerm={searchTerm} 
-      />
-
-      <Footer 
-        onOpenLegalNotice={() => setIsLegalNoticeOpen(true)} 
-        onOpenPrivacy={() => setIsPrivacyOpen(true)}
-      />
-
-      <LegalNoticeModal 
-        isOpen={isLegalNoticeOpen} 
-        onClose={() => setIsLegalNoticeOpen(false)} 
-      />
-
-      <PrivacyModal
-        isOpen={isPrivacyOpen}
-        onClose={() => setIsPrivacyOpen(false)}
-      />
-
-      <CheckoutForm 
-        isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-        totalPrice={checkoutPrice > 0 ? checkoutPrice : totalPrice * 0.9}
-        cartItems={cartItems}
-        currentPostcode={postcode}
-        onOrderSuccess={clearCart}
-      />
-
-      <PostcodeModal 
-        isOpen={isPostcodeModalOpen}
-        onClose={() => setIsPostcodeModalOpen(false)}
-        onSave={handlePostcodeSave}
-        currentPostcode={postcode}
-        errorMessage={postcodeError}
-      />
-
-      <CartDrawer 
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onOpenCheckout={(finalPrice) => {
-          setCheckoutPrice(finalPrice);
-          setIsCartOpen(false);
-          setIsCheckoutOpen(true);
-        }}
-      />
-
-      <button
-        onClick={() => setIsAdminMode(true)}
-        style={{
-          position: 'fixed',
-          bottom: '10px',
-          right: '10px',
-          opacity: 0.3,
-          backgroundColor: '#000',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          padding: '4px 8px',
-          fontSize: '10px',
-          cursor: 'pointer',
-          zIndex: 9999
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.3')}
-      >
-        🔑 Küchen-Login
-      </button>
-    </div>
+      {/* PFAD 2: Das Küchen-Dashboard unter einer eigenen, festen URL */}
+      <Route path="/kueche" element={
+        <div>
+          <div style={{ padding: '10px', backgroundColor: '#2d3748', borderBottom: '1px solid #4a5568' }}>
+            <button 
+              onClick={() => navigate('/')} // Bringt den Admin zurück zum Storefront-Pfad
+              style={{ padding: '6px 12px', backgroundColor: '#4a5568', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              ← Zurück zum Pizza-Shop
+            </button>
+          </div>
+          <AdminDashboard />
+        </div>
+      } />
+    </Routes>
   );
 }
 

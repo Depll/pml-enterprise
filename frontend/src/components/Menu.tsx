@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { IngredientsModal } from './IngredientsModal';
-import { apiService } from '../services/api'; // Pfad anpassen, falls nötig
-
 
 interface MenuProps {
   activeCategory: string;
   searchTerm: string;
+  menuData: any[];    // <-- NEU: Hier kommen die zentralen Daten rein
+  isLoading: boolean; // <-- NEU: Hier kommt der zentrale Ladezustand rein
 }
 
 interface Ingredient {
@@ -32,44 +32,12 @@ interface Product {
   options: string[] | null;
 }
 
-interface CategoryData {
-  id: number;
-  name: string;
-  label: string;
-  products: Product[]; 
-}
-
-export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
+export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm, menuData, isLoading }) => {
   const { addToCart } = useCart();
   
-  const [categoriesData, setCategoriesData] = useState<CategoryData[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
+  // Der categoriesData State und der gesamte useEffect fliegen komplett raus!
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-  useEffect(() => {
-    const fetchMenuData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // 1. Nutze die zentrale fetchMenu-Funktion aus der api.ts
-        const data = await apiService.fetchMenu();
-        
-        // TypeScript-Typ-Sicherheit erzwingen (falls Typen leicht abweichen)
-        setCategoriesData(data as any);
-        setError(null);
-      } catch (err: any) {
-        console.error(err);
-        setError('Die Speisekarte konnte nicht geladen werden.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMenuData();
-  }, []);
 
   const handleOpenModal = (product: Product) => {
     setSelectedProduct(product);
@@ -103,30 +71,21 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
     );
   }
 
-  if (error) {
-    return (
-      <section className="pml-menu-section">
-        <p style={{ textAlign: 'center', color: '#e53e3e', padding: '40px' }}>
-          {error}
-        </p>
-      </section>
-    );
-  }
-
   return (
     <section className="pml-menu-section" id="speisekarte">
       <div className="pml-menu-container">
         <h2 className="pml-menu-main-title">Unsere Speisekarte</h2>
 
-        {categoriesData.map((cat) => {
+        {/* Wir mappen nun direkt über die übergebenen menuData */}
+        {(menuData || []).map((cat: any) => {
           if (activeCategory !== 'alle' && cat.name.toLowerCase() !== activeCategory.toLowerCase()) {
             return null;
           }
 
-          let filteredProducts = (cat.products || []).filter(p => p.isActive !== false);
+          let filteredProducts = (cat.products || []).filter((p: any) => p.isActive !== false);
 
           if (searchTerm.trim() !== '') {
-            filteredProducts = filteredProducts.filter(p => 
+            filteredProducts = filteredProducts.filter((p: any) => 
               p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
               (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
             );
@@ -141,7 +100,7 @@ export const Menu: React.FC<MenuProps> = ({ activeCategory, searchTerm }) => {
               </div>
 
               <div className="pml-products-grid">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product: any) => (
                   <div key={product.id} className="pml-product-card">
                     <div>
                       <h3 className="pml-product-title">{product.name}</h3>
