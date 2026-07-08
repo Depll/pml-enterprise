@@ -8,7 +8,8 @@ export class IngredientEntity {
   @PrimaryGeneratedColumn({ type: 'int' })
   id: number;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  // unique true no more needed
+  @Column({ type: 'varchar', length: 50 })
   name: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0.0 })
