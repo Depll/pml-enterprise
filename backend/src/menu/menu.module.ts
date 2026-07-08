@@ -12,5 +12,6 @@ import { MenuService } from './menu.service';
   ],
   controllers: [MenuController],
   providers: [MenuService],
+  exports: [MenuService], // <-- Hier exportierst du den Service, damit er in anderen Modulen verwendet werden kann
 })
 export class MenuModule {}
