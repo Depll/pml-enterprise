@@ -47,7 +47,7 @@ export const apiService = {
       const data = Array.isArray(response.data) ? response.data : [];
 
       // Hier mappen wir das 'is_active' aus der DB auf das 'isActive' für React
-      return data.map((category) => ({
+      return data.map((category: any) => ({
         ...category,
         products: (category.products || []).map((product: any) => ({
           ...product,
