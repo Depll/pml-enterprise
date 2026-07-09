@@ -79,21 +79,22 @@ export class OrdersService {
     if (savedOrder.telegramChatId) {
       let message = `🔔 *Status-Update zu deiner Bestellung # ${savedOrder.id.substring(0, 8)}...*\n\n`;
 
-      switch (status) {
-        case 'IN_PREPARATION':
+      // Matcht jetzt exakt deine allowedStatuses ('open', 'zubereitung', 'erledigt', 'storniert')
+      switch (status.toLowerCase()) {
+        case 'open':
+          message += `⏳ Deine Bestellung ist eingegangen und wartet auf Bestätigung!`;
+          break;
+        case 'zubereitung':
           message += `🍕 Deine Bestellung wird jetzt frisch zubereitet und ist gleich im Ofen!`;
           break;
-        case 'IN_DELIVERY':
-          message += `🚀 Gute Nachrichten! Deine Pizza ist auf dem Weg zu dir und wird heiß geliefert.`;
-          break;
-        case 'COMPLETED':
+        case 'erledigt':
           message += `✅ Deine Bestellung wurde erfolgreich übergeben. Guten Appetit! 🎉`;
           break;
-        case 'CANCELLED':
+        case 'storniert':
           message += `❌ Deine Bestellung musste leider storniert werden.\nGrund: ${stornoReason || 'Keine Angabe'}`;
           break;
         default:
-          // Bei jedem anderen Status senden wir keine Nachricht, geben aber die Bestellung zurück
+          // Falls ein unbekannter Status kommt, senden wir nichts
           return savedOrder;
       }
 
@@ -106,7 +107,6 @@ export class OrdersService {
           },
         );
       } catch (error) {
-        // Fehler wird nur geloggt, damit die HTTP-Response (200 OK) nicht fehlschlägt
         console.error(`Fehler beim Senden des Telegram-Status-Updates:`, error);
       }
     }
