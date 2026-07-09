@@ -13,7 +13,6 @@ import { Type } from 'class-transformer';
 
 // DTO für eine einzelne Position im Warenkorb
 export class OrderPositionDto {
-  // GEÄNDERT: Von @IsString auf @IsNumber geändert, da deine Entity ein 'int' verlangt!
   @IsNumber({}, { message: 'Die Produkt-ID muss eine Zahl sein.' })
   @IsNotEmpty({ message: 'Die Produkt-ID darf nicht leer sein.' })
   productId: number;
@@ -22,7 +21,6 @@ export class OrderPositionDto {
   @Min(1, { message: 'Die Menge muss mindestens 1 sein.' })
   quantity: number;
 
-  // NEU HINZUGEFÜGT: Weil deine Entity 'price_snapshot' verlangt!
   @IsNumber({}, { message: 'Der Preis-Snapshot muss eine Zahl sein.' })
   priceSnapshot: number;
 
@@ -87,14 +85,16 @@ export class CreateOrderDto {
 
   @IsNumber({}, { message: 'Der Gesamtpreis muss eine Zahl sein.' })
   @Min(0, { message: 'Der Gesamtpreis kann nicht negativ sein.' })
-  totalPrice: number; // <-- Das hier einfach unten drunter hinzufügen!
+  totalPrice: number;
 
   @IsArray({ message: 'Die Bestellung muss Positionen enthalten.' })
   @ValidateNested({ each: true })
   @Type(() => OrderPositionDto)
   positions: OrderPositionDto[];
 
-  @IsOptional() // oder @IsString(), je nachdem welche Validierung du nutzt
+  // GEÄNDERT: Explizit @IsString() hinzugefügt, damit die ValidationPipe das Feld durchlässt!
+  @IsOptional()
+  @IsString({ message: 'Die Telegram Chat-ID muss ein Text sein.' })
   telegramChatId?: string;
 }
 
@@ -106,5 +106,5 @@ export class UpdateOrderStatusDto {
 
   @IsOptional()
   @IsString({ message: 'Der Stornogrund muss ein Text sein.' })
-  stornoReason?: string; // von 'stornoGrund' zu 'stornoReason'
+  stornoReason?: string;
 }
