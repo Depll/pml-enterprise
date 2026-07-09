@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios'; // <-- Hier importiert
 import { TelegramUpdate } from './telegram.update';
-import { MenuModule } from '../menu/menu.module'; // <-- Import-Pfad zum Menu
+import { MenuModule } from '../menu/menu.module';
 
 @Module({
-  imports: [MenuModule], // <-- Verknüpft das MenuModule mit dem Bot
+  imports: [
+    HttpModule, // <-- MUSS hier im imports-Array stehen!
+    MenuModule,
+  ],
   providers: [TelegramUpdate],
 })
 export class TelegramModule {}
