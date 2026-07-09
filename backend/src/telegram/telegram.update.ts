@@ -547,7 +547,6 @@ export class TelegramUpdate {
       return;
     }
 
-    // GEÄNDERT: telegramChatId wird jetzt als String aus ctx.from.id mitgeschickt!
     const createOrderPayload = {
       telegramChatId: userId.toString(),
       customerName: state.customerName!,
@@ -580,15 +579,18 @@ export class TelegramUpdate {
 
       await firstValueFrom(this.httpService.post(apiUrl, createOrderPayload));
 
+      // GEÄNDERT: Zeigt das dedizierte Live-Tracking-Fenster an, anstatt das Startmenü neu zu laden
       await ctx.editMessageText(
-        `🎉 *Vielen Dank für deine Bestellung!*\n\nDeine Bestellung wurde erfolgreich an unsere Küche übermittelt und wird frisch zubereitet. Die alten Buttons wurden deaktiviert. 🚀`,
+        `🎉 *Vielen Dank für deine Bestellung!*\n\n` +
+        `Deine Bestellung wurde erfolgreich übermittelt. 🚀\n\n` +
+        `⏳ *Status:* Warten auf Bestätigung...\n\n` +
+        `💡 _Du musst nichts weiter tun. Sobald sich der Status deiner Bestellung ändert, kriegst du hier im Chat sofort eine Live-Benachrichtigung von mir!_`,
         { parse_mode: 'Markdown' },
       );
 
       delete this.carts[userId];
       this.userStates[userId] = { step: OrderStep.NONE };
 
-      await this.onStart(ctx);
     } catch (err: any) {
       console.error(
         'Fehler beim Abschicken der Bestellung an das Backend:', 
