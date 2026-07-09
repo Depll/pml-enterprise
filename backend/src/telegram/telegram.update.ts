@@ -67,7 +67,7 @@ interface UserState {
 // Validierungs-Konstanten aus deinem React-Frontend & DTO
 const VALID_POSTCODES = ['51371', '51373', '51375', '51377', '51379', '51381'];
 const PHONE_REGEX = /^[0-9+\s/-]{6,20}$/;
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-]{2,}$/;
 
 // Mindestbestellwert definieren
 const MIN_ORDER_VALUE = 15.0;
@@ -547,7 +547,9 @@ export class TelegramUpdate {
       return;
     }
 
+    // GEÄNDERT: telegramChatId wird jetzt als String aus ctx.from.id mitgeschickt!
     const createOrderPayload = {
+      telegramChatId: userId.toString(),
       customerName: state.customerName!,
       street: state.street!,
       houseNumber: state.houseNumber!,
@@ -571,7 +573,6 @@ export class TelegramUpdate {
     };
 
     try {
-      // GEÄNDERT: Direkt an dein Live-Backend auf Render senden
       const baseUrl =
         process.env.BACKEND_URL ||
         'https://pml-enterprise-database.onrender.com';
@@ -579,7 +580,6 @@ export class TelegramUpdate {
 
       await firstValueFrom(this.httpService.post(apiUrl, createOrderPayload));
 
-      // Erst wenn die API erfolgreich antwortet, löschen wir das Interface
       await ctx.editMessageText(
         `🎉 *Vielen Dank für deine Bestellung!*\n\nDeine Bestellung wurde erfolgreich an unsere Küche übermittelt und wird frisch zubereitet. Die alten Buttons wurden deaktiviert. 🚀`,
         { parse_mode: 'Markdown' },

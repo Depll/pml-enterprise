@@ -12,6 +12,16 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // NEU: Hier speichern wir die Chat-ID des Kunden aus Telegram
+  // Als varchar und nullable, falls mal eine Bestellung nicht über Telegram reinkommt
+  @Column({
+    name: 'telegram_chat_id',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  telegramChatId: string;
+
   @Column({ name: 'customer_name', type: 'varchar', length: 150 })
   customerName: string;
 
@@ -36,7 +46,6 @@ export class Order {
   @Column({ name: 'delivery_note', type: 'text', nullable: true })
   deliveryNote: string;
 
-  // Falls du den Gesamtpreis mitspeichern willst, lassen wir ihn drin
   @Column({
     name: 'total_price',
     type: 'numeric',
@@ -49,14 +58,12 @@ export class Order {
   @Column({ type: 'varchar', length: 20, default: 'open' })
   status: string;
 
-  // GEÄNDERT: Auf 'stornoReason' angepasst, damit es zum Service & DTO passt!
   @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
   stornoReason: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  // GEÄNDERT: Zu 'positions' umbenannt, damit die Relations-Abfrage klappt!
   @OneToMany(() => OrderPosition, (position) => position.order, {
     cascade: true,
   })

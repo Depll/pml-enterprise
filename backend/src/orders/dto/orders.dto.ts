@@ -93,6 +93,9 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderPositionDto)
   positions: OrderPositionDto[];
+
+  @IsOptional() // oder @IsString(), je nachdem welche Validierung du nutzt
+  telegramChatId?: string;
 }
 
 // DTO für das Ändern des Bestellstatus
