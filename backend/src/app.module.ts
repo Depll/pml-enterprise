@@ -11,6 +11,7 @@ import { IngredientEntity } from './database/entities/ingredient.entity';
 import { DeliveryAreaEntity } from './database/entities/delivery-area.entity';
 import { Order } from './database/entities/order.entity';
 import { OrderPosition } from './database/entities/order-position.entity';
+import { UserSessionEntity } from './database/entities/user-session.entity';
 
 // Services & Module importieren
 import { SeedService } from './database/seeds/seed.service';
@@ -44,6 +45,7 @@ import { AppService } from './app.service';
         DeliveryAreaEntity,
         Order,
         OrderPosition,
+        UserSessionEntity,
       ],
       synchronize: true,
     }),
@@ -52,6 +54,7 @@ import { AppService } from './app.service';
       ProductEntity,
       IngredientEntity,
       DeliveryAreaEntity,
+      UserSessionEntity,
     ]),
     TelegrafModule.forRootAsync({
       imports: [ConfigModule],

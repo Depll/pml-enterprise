@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -7,589 +6,335 @@ import {
   Update,
   Start,
   Ctx,
-  Action,
   On,
   Message,
   Command,
 } from 'nestjs-telegraf';
-import { Context, Markup } from 'telegraf';
+import { Context } from 'telegraf';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { MenuService } from '../menu/menu.service';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { UserSessionEntity } from '../database/entities/user-session.entity';
+import { AiOrderParserService } from './ai-order-parser.service';
 
-interface CallbackQueryData {
-  data: string;
-}
-
-enum OrderStep {
-  NONE,
-  WAITING_FOR_SIZE,
-  WAITING_FOR_OPTION,
-  WAITING_FOR_REMARK,
-  // Checkout-Schritte passend zum CreateOrderDto
-  WAITING_FOR_NAME,
-  WAITING_FOR_STREET,
-  WAITING_FOR_HOUSE_NUMBER,
-  WAITING_FOR_POSTCODE,
-  WAITING_FOR_CITY,
-  WAITING_FOR_PHONE,
-  WAITING_FOR_EMAIL,
-  WAITING_FOR_DELIVERY_NOTE,
-}
-
-interface CartItem {
-  productId: number;
-  name: string;
-  size?: string;
-  option?: string;
-  remark: string;
-  price: number;
-  quantity: number;
-}
-
-interface UserState {
-  step: OrderStep;
-  currentProductId?: number;
-  currentSize?: string;
-  currentOption?: string;
-  configuredPrice?: number;
-  // Checkout-Daten
-  customerName?: string;
-  street?: string;
-  houseNumber?: string;
-  postcode?: string;
-  city?: string;
-  phone?: string;
-  email?: string;
-  deliveryNote?: string;
-}
-
-// Validierungs-Konstanten aus deinem React-Frontend & DTO
 const VALID_POSTCODES = ['51371', '51373', '51375', '51377', '51379', '51381'];
 const PHONE_REGEX = /^[0-9+\s/-]{6,20}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-]{2,}$/;
-
-// Mindestbestellwert definieren
 const MIN_ORDER_VALUE = 15.0;
 
 @Update()
 export class TelegramUpdate {
-  private carts: Record<number, CartItem[]> = {};
-  private userStates: Record<number, UserState> = {};
-
   constructor(
     private readonly menuService: MenuService,
     private readonly httpService: HttpService,
+    private readonly aiParserService: AiOrderParserService,
+    @InjectRepository(UserSessionEntity)
+    private readonly sessionRepository: Repository<UserSessionEntity>,
   ) {}
+
+  private async getOrCreateSession(telegramChatId: string): Promise<UserSessionEntity> {
+    let session = await this.sessionRepository.findOne({ where: { telegramChatId } });
+    if (!session) {
+      session = this.sessionRepository.create({
+        telegramChatId,
+        state: 'IDLE',
+        tempCart: [],
+        contactData: {},
+        chatHistory: [],
+      });
+      await this.sessionRepository.save(session);
+    }
+    return session;
+  }
 
   @Start()
   async onStart(@Ctx() ctx: Context) {
-    try {
-      const menu = await this.menuService.getMenu();
-      const categoryButtons = menu.map((category) => {
-        return Markup.button.callback(
-          category.name,
-          `show_category_${category.id}`,
-        );
-      });
+    const userId = ctx.from?.id.toString();
+    if (!userId) return;
 
-      // Optischer Hinweis auf den Mindestbestellwert direkt in der Start-Nachricht
-      await ctx.reply(
-        `Willkommen beim PML Pizza Bestellbot! 🍕\n\n` +
-        `🛵 *Lieferbedingungen:*\n` +
+    const session = await this.getOrCreateSession(userId);
+    session.state = 'IDLE';
+    session.tempCart = [];
+    session.contactData = {};
+    session.chatHistory = [];
+    await this.sessionRepository.save(session);
+
+    await ctx.reply(
+      `Willkommen beim PML Pizza Bestellbot! 🍕\n\n` +
+      `Schreibe mir einfach ganz normal, was du bestellen möchtest. Tippfehler machen nichts aus!\n\n` +
+      `🛵 *Lieferbedingungen:*\n` +
       `• Mindestbestellwert: *${MIN_ORDER_VALUE.toFixed(2)}€*\n` +
-        `• Lieferung: *Kostenlos* (Nur Leverkusen)\n\n` +
-        `💡 _Tipp: Nutze jederzeit /clear um die Bestellung zurückzusetzen._\n\n` +
-        `Was möchtest du heute bestellen? Wähle eine Kategorie:`,
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard(categoryButtons, { columns: 2 })
-        }
-      );
-    } catch (error) {
-      console.error('Fehler im Telegram Bot:', error);
-      await ctx.reply('Ups, da ist etwas schiefgelaufen.');
-    }
+      `• Lieferung: *Kostenlos* (Nur Leverkusen)\n\n` +
+      `💡 _Tipp: Nutze jederzeit /clear um die Bestellung zurückzusetzen._\n\n` +
+      `Was darf ich dir heute Schönes zubereiten?`,
+      { parse_mode: 'Markdown' }
+    );
   }
 
-  // Clear / Reset Kommando für den sauberen Neustart
   @Command(['clear', 'reset', 'restart'])
   async onClearCommand(@Ctx() ctx: Context) {
-    const userId = ctx.from?.id;
-    if (userId) {
-      delete this.carts[userId];
-      this.userStates[userId] = { step: OrderStep.NONE };
-    }
-    
-    await ctx.reply('🔄 *Dein Warenkorb und deine Eingaben wurden zurückgesetzt!*', { parse_mode: 'Markdown' });
     await this.onStart(ctx);
   }
 
-  @Action(/^show_category_(\d+)$/)
-  async onCategorySelect(@Ctx() ctx: Context) {
-    try {
-      const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-      if (!callbackQuery || !callbackQuery.data) return;
+  @On('text')
+  async onMessage(@Ctx() ctx: Context, @Message('text') text: string) {
+    const userId = ctx.from?.id.toString();
+    if (!userId) return;
 
-      const match = callbackQuery.data.match(/^show_category_(\d+)$/);
-      if (!match) return;
+    const session = await this.getOrCreateSession(userId);
 
-      const categoryId = Number(match[1]);
-      const menu = await this.menuService.getMenu();
-      const selectedCategory = menu.find((cat) => cat.id === categoryId);
-
-      if (!selectedCategory) {
-        await ctx.reply('Kategorie wurde nicht gefunden.');
-        return;
-      }
-
-      if (!selectedCategory.products || selectedCategory.products.length === 0) {
-        await ctx.reply(`In der Kategorie "${selectedCategory.name}" gibt es aktuell keine Gerichte.`);
-        return;
-      }
-
-      await ctx.reply(`Hier sind die Gerichte aus der Kategorie *${selectedCategory.name}*:`, { parse_mode: 'Markdown' });
-
-      for (const product of selectedCategory.products) {
-        if (product.isActive === false) continue;
-
-        const infoText = `*${product.name}*\n${product.description ?? ''}\nBasispreis: ${Number(product.price).toFixed(2)}€`;
-        const productButton = Markup.inlineKeyboard([
-          [Markup.button.callback('🛒 In den Warenkorb', `configure_${product.id}`)],
-          [Markup.button.callback('🛍️ Warenkorb anzeigen', 'show_cart')]
-        ]);
-
-        await ctx.reply(infoText, { parse_mode: 'Markdown', ...productButton });
-      }
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error(error);
+    session.chatHistory.push({ role: 'user', content: text });
+    if (session.chatHistory.length > 12) {
+      session.chatHistory.shift();
     }
+
+    await ctx.sendChatAction('typing');
+
+    const { replyText, parsedData } = await this.aiParserService.parseUserText(
+      text,
+      session.tempCart,
+      session.contactData,
+      session.chatHistory
+    );
+
+    // parsedData explizit als beliebiges Objekt behandeln, um 'never'-Fehler zu vermeiden
+    const data = parsedData as any;
+
+    if (data) {
+      if (data.userIntent === 'CANCEL_ORDER') {
+        await this.onStart(ctx);
+        return;
+      }
+
+      if (data.userIntent === 'CONFIRM_ORDER') {
+        await this.handleFinalOrderCheckout(ctx, session);
+        return;
+      }
+
+      if (data.items) {
+        session.tempCart = data.items;
+      }
+
+      if (data.contact) {
+        session.contactData = {
+          ...session.contactData,
+          ...data.contact,
+        };
+      }
+
+      const validationError = this.validateSessionData(session);
+      if (validationError) {
+        await ctx.reply(validationError, { parse_mode: 'Markdown' });
+        session.chatHistory.push({ role: 'assistant', content: validationError });
+        await this.sessionRepository.save(session);
+        return;
+      }
+
+      if (this.isContactDataComplete(session)) {
+        await this.showOrderSummary(ctx, session);
+        return;
+      }
+    }
+
+    await ctx.reply(replyText);
+    session.chatHistory.push({ role: 'assistant', content: replyText });
+    await this.sessionRepository.save(session);
   }
 
-  @Action(/^configure_(\d+)$/)
-  async onConfigureProduct(@Ctx() ctx: Context) {
-    try {
-      const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-      if (!callbackQuery || !callbackQuery.data) return;
+  // Synchroner Validierer (Kein async/await Warnungsfehler mehr)
+  private validateSessionData(session: UserSessionEntity): string | null {
+    const contact = session.contactData;
 
-      const match = callbackQuery.data.match(/^configure_(\d+)$/);
-      if (!match) return;
+    if (contact.phone && !PHONE_REGEX.test(contact.phone.trim())) {
+      return `⚠️ Deine Telefonnummer *"${contact.phone}"* scheint ungültig zu sein. Bitte gib eine gültige Nummer an (nur Zahlen, Leerzeichen, / oder -).`;
+    }
 
-      const productId = Number(match[1]);
-      const userId = ctx.from?.id;
-      if (!userId) return;
+    if (contact.email && contact.email.toLowerCase() !== 'keine') {
+      if (!EMAIL_REGEX.test(contact.email.trim())) {
+        return `⚠️ Die E-Mail-Adresse *"${contact.email}"* ist ungültig. Bitte korrigiere sie oder schreibe "keine E-Mail".`;
+      }
+    }
 
-      const menu = await this.menuService.getMenu();
-      let product: any = null;
+    if (contact.postcode && !VALID_POSTCODES.includes(contact.postcode.trim())) {
+      return `❌ Wir liefern leider nicht an die Postleitzahl *${contact.postcode}*. Wir beliefern nur folgende PLZ in Leverkusen: ${VALID_POSTCODES.join(', ')}. Bitte gib eine andere Adresse an.`;
+    }
+
+    return null;
+  }
+
+  private isContactDataComplete(session: UserSessionEntity): boolean {
+    const contact = session.contactData;
+    return !!(
+      contact.customerName &&
+      contact.street &&
+      contact.houseNumber &&
+      contact.postcode &&
+      contact.phone
+    );
+  }
+
+  private async calculateCartTotal(tempCart: any[]): Promise<{ total: number; itemsWithPrices: any[] }> {
+    const menu = await this.menuService.getMenu();
+    let total = 0;
+    // Explizit als any[] deklariert, um den 'never'-Push-Fehler zu beheben
+    const itemsWithPrices: any[] = [];
+
+    for (const cartItem of tempCart) {
+      let dbProduct: any = null;
       for (const cat of menu) {
-        const p = cat.products.find((p) => p.id === productId);
-        if (p) { product = p; break; }
+        const p = cat.products.find((p) => p.id === cartItem.productId);
+        if (p) {
+          dbProduct = p;
+          break;
+        }
       }
 
-      if (!product) return;
+      if (!dbProduct) continue;
 
-      this.userStates[userId] = {
-        ...this.userStates[userId],
-        step: OrderStep.NONE,
-        currentProductId: productId,
-        configuredPrice: Number(product.price)
-      };
+      let itemBasePrice = Number(dbProduct.price);
+      let sizeExtraIngredientPrice = 1.5;
 
-      if (product.sizes && product.sizes.length > 0) {
-        this.userStates[userId].step = OrderStep.WAITING_FOR_SIZE;
-        const sizeButtons = product.sizes.map((s: any, idx: number) => [
-          Markup.button.callback(`${s.name} (${Number(s.price).toFixed(2)}€)`, `select_size_${idx}`)
-        ]);
-        await ctx.reply('📐 Bitte wähle eine *Größe* für dein Gericht:', { parse_mode: 'Markdown', ...Markup.inlineKeyboard(sizeButtons) });
-        await ctx.answerCbQuery();
-        return;
+      if (cartItem.size && dbProduct.sizes) {
+        const selectedSize = dbProduct.sizes.find(
+          (s: any) => s.name.toLowerCase() === cartItem.size.toLowerCase()
+        );
+        if (selectedSize) {
+          itemBasePrice = Number(selectedSize.price);
+          sizeExtraIngredientPrice = Number(selectedSize.extraIngredientPrice);
+        }
       }
 
-      if (product.options && product.options.length > 0) {
-        await this.promptForOptions(ctx, product.options);
-        await ctx.answerCbQuery();
-        return;
+      let extrasTotal = 0;
+      if (cartItem.extras && cartItem.extras.length > 0 && dbProduct.ingredients) {
+        for (const extraName of cartItem.extras) {
+          const dbIngredient = dbProduct.ingredients.find(
+            (i: any) => i.name.toLowerCase() === extraName.toLowerCase()
+          );
+          if (dbIngredient) {
+            extrasTotal += dbIngredient.extraPrice > 0 
+              ? Number(dbIngredient.extraPrice) 
+              : sizeExtraIngredientPrice;
+          } else {
+            extrasTotal += sizeExtraIngredientPrice;
+          }
+        }
       }
 
-      await this.promptForRemark(ctx);
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error(error);
-    }
-  }
+      const singleItemSum = (itemBasePrice + extrasTotal) * cartItem.quantity;
+      total += singleItemSum;
 
-  @Action(/^select_size_(\d+)$/)
-  async onSizeSelect(@Ctx() ctx: Context) {
-    const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-    const sizeIdx = Number(callbackQuery.data.split('_')[2]);
-    const userId = ctx.from?.id;
-    if (!userId || !this.userStates[userId]) return;
-
-    const state = this.userStates[userId];
-    const menu = await this.menuService.getMenu();
-    let product: any = null;
-    for (const cat of menu) {
-      const p = cat.products.find((p) => p.id === state.currentProductId);
-      if (p) { product = p; break; }
-    }
-
-    const selectedSize = product?.sizes?.[sizeIdx];
-    if (!selectedSize) return;
-
-    state.currentSize = selectedSize.name;
-    state.configuredPrice = Number(selectedSize.price);
-
-    if (product.options && product.options.length > 0) {
-      await this.promptForOptions(ctx, product.options);
-    } else {
-      await this.promptForRemark(ctx);
-    }
-    await ctx.answerCbQuery();
-  }
-
-  @Action(/^select_option_(\d+)$/)
-  async onOptionSelect(@Ctx() ctx: Context) {
-    const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-    const optionIdx = Number(callbackQuery.data.split('_')[2]);
-    const userId = ctx.from?.id;
-    if (!userId || !this.userStates[userId]) return;
-
-    const state = this.userStates[userId];
-    const menu = await this.menuService.getMenu();
-    let product: any = null;
-    for (const cat of menu) {
-      const p = cat.products.find((p) => p.id === state.currentProductId);
-      if (p) { product = p; break; }
-    }
-
-    const selectedOption = product?.options?.[optionIdx];
-    if (!selectedOption) return;
-
-    state.currentOption = selectedOption;
-    await this.promptForRemark(ctx);
-    await ctx.answerCbQuery();
-  }
-
-  private async promptForOptions(ctx: Context, options: string[]) {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-    this.userStates[userId].step = OrderStep.WAITING_FOR_OPTION;
-    const optionButtons = options.map((opt, idx) => [Markup.button.callback(opt, `select_option_${idx}`)]);
-    await ctx.reply('🍝 Bitte wähle eine *Option / Variante*:', { parse_mode: 'Markdown', ...Markup.inlineKeyboard(optionButtons) });
-  }
-
-  private async promptForRemark(ctx: Context) {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-    this.userStates[userId].step = OrderStep.WAITING_FOR_REMARK;
-    const skipButton = Markup.inlineKeyboard([[Markup.button.callback('⏩ Keine Anmerkung (Überspringen)', 'skip_remark')]]);
-    await ctx.reply(`✍️ Möchtest du eine *Anmerkung* hinzufügen?\n\nKlicke auf Überspringen oder tippe sie als Text ein:`, { parse_mode: 'Markdown', ...skipButton });
-  }
-
-  @Action('skip_remark')
-  async onSkipRemark(@Ctx() ctx: Context) {
-    await ctx.answerCbQuery();
-    await this.addProductToCartFinal(ctx, 'Keine');
-  }
-
-  private async addProductToCartFinal(ctx: Context, remarkText: string) {
-    const userId = ctx.from?.id;
-    if (!userId || !this.userStates[userId]) return;
-
-    const state = this.userStates[userId];
-    const menu = await this.menuService.getMenu();
-    let baseProduct: any = null;
-    for (const cat of menu) {
-      const prod = cat.products.find((p) => p.id === state.currentProductId);
-      if (prod) { baseProduct = prod; break; }
-    }
-    if (!baseProduct) return;
-
-    if (!this.carts[userId]) this.carts[userId] = [];
-    const existingItem = this.carts[userId].find(
-      (item) => item.productId === state.currentProductId && item.size === state.currentSize && item.option === state.currentOption && item.remark === remarkText
-    );
-
-    if (existingItem) {
-      existingItem.quantity += 1;
-    } else {
-      this.carts[userId].push({
-        productId: baseProduct.id,
-        name: baseProduct.name,
-        size: state.currentSize,
-        option: state.currentOption,
-        remark: remarkText,
-        price: state.configuredPrice!,
-        quantity: 1
+      itemsWithPrices.push({
+        ...cartItem,
+        singlePrice: itemBasePrice + extrasTotal,
+        totalPrice: singleItemSum,
       });
     }
 
-    state.step = OrderStep.NONE;
-    const basketButton = Markup.inlineKeyboard([
-      [Markup.button.callback('🛍️ Warenkorb anzeigen', 'show_cart')],
-      [Markup.button.callback('🍕 Weiter einkaufen', 'continue_shopping')]
-    ]);
-
-    let confirmationMsg = `✅ *${baseProduct.name}* wurde hinzugefügt!\n`;
-    if (state.currentSize) confirmationMsg += `📐 Größe: *${state.currentSize}*\n`;
-    if (state.currentOption) confirmationMsg += `🍝 Variante: *${state.currentOption}*\n`;
-    confirmationMsg += `✍️ Anmerkung: _${remarkText}_\n\nWas möchtest du tun?`;
-
-    await ctx.reply(confirmationMsg, { parse_mode: 'Markdown', ...basketButton });
+    return { total, itemsWithPrices };
   }
 
-  @Action('show_cart')
-  async onShowCart(@Ctx() ctx: Context) {
-    try {
-      const userId = ctx.from?.id;
-      if (!userId) return;
+  private async showOrderSummary(ctx: Context, session: UserSessionEntity) {
+    const { total, itemsWithPrices } = await this.calculateCartTotal(session.tempCart);
+    const contact = session.contactData;
 
-      if (!this.carts[userId] || this.carts[userId].length === 0) {
-        const emptyButtons = Markup.inlineKeyboard([[Markup.button.callback('🍕 Jetzt einkaufen', 'continue_shopping')]]);
-        try { await ctx.editMessageText('Dein Warenkorb ist aktuell noch leer. 🛒', { ...emptyButtons }); } catch { await ctx.reply('Dein Warenkorb ist aktuell noch leer. 🛒', { ...emptyButtons }); }
-        await ctx.answerCbQuery();
-        return;
-      }
+    let summaryText = `📝 **Bitte kontrolliere deine Bestellung:**\n\n`;
+    summaryText += `🛒 **Warenkorb:**\n`;
 
-      let total = 0;
-      let cartText = '🛍️ *Dein aktueller Warenkorb:*\n\n';
-      const inlineButtons: any[][] = [];
+    itemsWithPrices.forEach((item, index) => {
+      let details = '';
+      if (item.size) details += `[${item.size}] `;
+      if (item.option) details += `(${item.option}) `;
 
-      this.carts[userId].forEach((item, index) => {
-        const sumPrice = item.price * item.quantity;
-        total += sumPrice;
-        let details = '';
-        if (item.size) details += `[${item.size}] `;
-        if (item.option) details += `(${item.option}) `;
+      summaryText += `*${index + 1}. ${item.name}* ${details}\n`;
+      if (item.extras && item.extras.length > 0) summaryText += `   _+ Extra:_ ${item.extras.join(', ')}\n`;
+      if (item.remove && item.remove.length > 0) summaryText += `   _- Ohne:_ ${item.remove.join(', ')}\n`;
+      if (item.comment) summaryText += `   _Anmerkung:_ ${item.comment}\n`;
+      summaryText += `   Menge: *${item.quantity}x* | Summe: *${item.totalPrice.toFixed(2)}€*\n\n`;
+    });
 
-        cartText += `*${index + 1}. ${item.name}* ${details}\n`;
-        if (item.remark !== 'Keine') cartText += `   _Anmerkung: ${item.remark}_\n`;
-        cartText += `   Menge: *${item.quantity}x* | Summe: *${sumPrice.toFixed(2)}€*\n\n`;
-
-        inlineButtons.push([
-          Markup.button.callback(`➖`, `cart_minus_${index}`),
-          Markup.button.callback(`${index + 1}. ${item.quantity}x`, `noop`),
-          Markup.button.callback(`➕`, `cart_plus_${index}`)
-        ]);
-      });
-
-      cartText += `💰 *Gesamtsumme: ${total.toFixed(2)}€*\n`;
-      
-      if (total < MIN_ORDER_VALUE) {
-        const rest = MIN_ORDER_VALUE - total;
-        cartText += `⚠️ Es fehlen noch *${rest.toFixed(2)}€* bis zum Mindestbestellwert (${MIN_ORDER_VALUE.toFixed(2)}€).`;
-      } else {
-        cartText += `✅ Mindestbestellwert erreicht! Kostenlose Lieferung.`;
-      }
-
-      inlineButtons.push([Markup.button.callback('🚀 Jetzt bestellen', 'checkout')]);
-      inlineButtons.push([Markup.button.callback('🍕 Weiter einkaufen', 'continue_shopping')]);
-
-      try { await ctx.editMessageText(cartText, { parse_mode: 'Markdown', ...Markup.inlineKeyboard(inlineButtons) }); } catch { await ctx.reply(cartText, { parse_mode: 'Markdown', ...Markup.inlineKeyboard(inlineButtons) }); }
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  @Action(/^cart_plus_(\d+)$/)
-  async onCartPlus(@Ctx() ctx: Context) {
-    const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-    const index = Number(callbackQuery.data.split('_')[2]);
-    const userId = ctx.from?.id;
-    if (userId && this.carts[userId] && this.carts[userId][index]) {
-      this.carts[userId][index].quantity += 1;
-      await this.onShowCart(ctx);
-    }
-  }
-
-  @Action(/^cart_minus_(\d+)$/)
-  async onCartMinus(@Ctx() ctx: Context) {
-    const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-    const index = Number(callbackQuery.data.split('_')[2]);
-    const userId = ctx.from?.id;
-    if (userId && this.carts[userId] && this.carts[userId][index]) {
-      this.carts[userId][index].quantity -= 1;
-      if (this.carts[userId][index].quantity <= 0)
-        this.carts[userId].splice(index, 1);
-      await this.onShowCart(ctx);
-    }
-  }
-
-  @Action('noop') async handleNoop(@Ctx() ctx: Context) {
-    await ctx.answerCbQuery();
-  }
-  @Action('continue_shopping') async onContinueShopping(@Ctx() ctx: Context) {
-    await ctx.answerCbQuery();
-    await this.onStart(ctx);
-  }
-
-  @Action('checkout')
-  async onCheckout(@Ctx() ctx: Context) {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    const cart = this.carts[userId] || [];
-    const total = cart.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
+    summaryText += `💰 **Warenwert:** *${total.toFixed(2)}€*\n`;
 
     if (total < MIN_ORDER_VALUE) {
       const rest = MIN_ORDER_VALUE - total;
-      await ctx.reply(
-        `❌ *Bestellung nicht möglich!*\n\n` +
-        `Deine Gesamtsumme beträgt aktuell *${total.toFixed(2)}€*.\n` +
-        `Du musst Produkte im Wert von mindestens *${MIN_ORDER_VALUE.toFixed(2)}€* hinzufügen, um bestellen zu können (es fehlen noch ${rest.toFixed(2)}€).`,
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('🛍️ Zum Warenkorb', 'show_cart')],
-            [Markup.button.callback('🍕 Weiter einkaufen', 'continue_shopping')]
-          ])
-        }
-      );
-      await ctx.answerCbQuery();
-      return;
+      summaryText += `⚠️ Es fehlen noch *${rest.toFixed(2)}€* bis zum Mindestbestellwert (${MIN_ORDER_VALUE.toFixed(2)}€).\n\n`;
+    } else {
+      summaryText += `✅ Mindestbestellwert erreicht! Kostenlose Lieferung.\n\n`;
     }
 
-    this.userStates[userId] = { ...this.userStates[userId], step: OrderStep.WAITING_FOR_NAME };
-    await ctx.reply('👤 Bitte gib deinen *vollständigen Namen* ein:', { parse_mode: 'Markdown' });
-    await ctx.answerCbQuery();
-  }
+    summaryText += `📍 **Lieferdaten:**\n`;
+    summaryText += `• **Name:** ${contact.customerName}\n`;
+    summaryText += `• **Adresse:** ${contact.street} ${contact.houseNumber}, ${contact.postcode} ${contact.city || 'Leverkusen'}\n`;
+    summaryText += `• **Tel:** ${contact.phone}\n`;
+    if (contact.email) summaryText += `• **E-Mail:** ${contact.email}\n`;
+    if (contact.deliveryNote) summaryText += `• **Bote:** _"${contact.deliveryNote}"_\n`;
 
-  @Action(/^edit_(.+)$/)
-  async onEditField(@Ctx() ctx: Context) {
-    const callbackQuery = ctx.callbackQuery as CallbackQueryData;
-    const field = callbackQuery.data.replace('edit_', '');
-    const userId = ctx.from?.id;
-    if (!userId || !this.userStates[userId]) return;
+    summaryText += `\n--- \n`;
 
-    const state = this.userStates[userId];
-    
-    if (field === 'customerName') { state.step = OrderStep.WAITING_FOR_NAME; await ctx.reply('👤 Gib den neuen *Namen* ein:'); }
-    else if (field === 'street') { state.step = OrderStep.WAITING_FOR_STREET; await ctx.reply('🏠 Gib die neue *Straße* ein:'); }
-    else if (field === 'houseNumber') { state.step = OrderStep.WAITING_FOR_HOUSE_NUMBER; await ctx.reply('🔢 Gib die neue *Hausnummer* ein:'); }
-    else if (field === 'postcode') { state.step = OrderStep.WAITING_FOR_POSTCODE; await ctx.reply('📮 Gib die neue *Postleitzahl* aus Leverkusen ein:'); }
-    else if (field === 'city') { state.step = OrderStep.WAITING_FOR_CITY; await ctx.reply('🏙️ Gib die neue *Stadt* ein:'); }
-    else if (field === 'phone') { state.step = OrderStep.WAITING_FOR_PHONE; await ctx.reply('📞 Gib die neue *Telefonnummer* ein:'); }
-    else if (field === 'email') { state.step = OrderStep.WAITING_FOR_EMAIL; await ctx.reply('📧 Gib die neue *E-Mail-Adresse* ein (oder "Keine"):'); }
-    else if (field === 'deliveryNote') { state.step = OrderStep.WAITING_FOR_DELIVERY_NOTE; await ctx.reply('📝 Gib die neue *Lieferanmerkung* ein (oder "Keine"):'); }
-
-    await ctx.answerCbQuery();
-  }
-
-  private async showOrderSummary(ctx: Context) {
-    const userId = ctx.from?.id;
-    if (!userId || !this.userStates[userId]) return;
-
-    const state = this.userStates[userId];
-
-    const summaryText = `📋 *Prüfe deine Bestelldaten:*\n\n` +
-      `👤 Name: ${state.customerName}\n` +
-      `🏠 Straße: ${state.street}\n` +
-      `🔢 Hausnummer: ${state.houseNumber}\n` +
-      `📮 PLZ: ${state.postcode} (Leverkusen)\n` +
-      `🏙️ Stadt: ${state.city || 'Leverkusen'}\n` +
-      `📞 Telefon: ${state.phone}\n` +
-      `📧 E-Mail: ${state.email ?? 'Keine'}\n` +
-      `📝 Lieferanmerkung: ${state.deliveryNote ?? 'Keine'}\n\n` +
-      `Falls ein Fehler vorliegt, klicke auf einen Button, um das Feld gezielt zu korrigieren.`;
-
-    const summaryButtons = Markup.inlineKeyboard([
-      [
-        Markup.button.callback('✏️ Name', 'edit_customerName'),
-        Markup.button.callback('✏️ Straße', 'edit_street'),
-      ],
-      [
-        Markup.button.callback('✏️ Hausnr.', 'edit_houseNumber'),
-        Markup.button.callback('✏️ PLZ', 'edit_postcode'),
-      ],
-      [
-        Markup.button.callback('✏️ Stadt', 'edit_city'),
-        Markup.button.callback('✏️ Telefon', 'edit_phone'),
-      ],
-      [
-        Markup.button.callback('✏️ E-Mail', 'edit_email'),
-        Markup.button.callback('✏️ Anmerkung', 'edit_deliveryNote'),
-      ],
-      [Markup.button.callback('✅ JETZT BESTELLEN', 'confirm_order')],
-      [Markup.button.callback('❌ Abbrechen', 'cancel_order')],
-    ]);
-
-    await ctx.reply(summaryText, { parse_mode: 'Markdown', ...summaryButtons });
-  }
-
-  @Action('confirm_order')
-  async onConfirmOrder(@Ctx() ctx: Context) {
-    const userId = ctx.from?.id;
-    if (!userId || !this.userStates[userId]) return;
-
-    const state = this.userStates[userId];
-    const cart = this.carts[userId];
-
-    if (!cart || cart.length === 0) {
-      await ctx.reply('Dein Warenkorb ist leer.');
-      return;
+    if (total < MIN_ORDER_VALUE) {
+      summaryText += `_Füge bitte noch ein weiteres Gericht hinzu, um bestellen zu können._`;
+      await ctx.reply(summaryText, { parse_mode: 'Markdown' });
+    } else {
+      summaryText += `_Stimmt alles? Schreibe mir einfach **"Bestätigen"** oder **"Ja"**, um die Bestellung abzuschicken. Falls etwas falsch ist, schreibe mir einfach, was ich korrigieren soll._`;
+      await ctx.reply(summaryText, { parse_mode: 'Markdown' });
     }
 
-    const totalOrderPrice = cart.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
+    session.chatHistory.push({ role: 'assistant', content: summaryText });
+    await this.sessionRepository.save(session);
+  }
 
-    if (totalOrderPrice < MIN_ORDER_VALUE) {
-      await ctx.reply(
-        `❌ Bestellung abgebrochen. Der Mindestbestellwert von ${MIN_ORDER_VALUE.toFixed(2)}€ wurde unterschritten.`,
-      );
-      await ctx.answerCbQuery();
+  private async handleFinalOrderCheckout(ctx: Context, session: UserSessionEntity) {
+    const contact = session.contactData;
+    const { total } = await this.calculateCartTotal(session.tempCart);
+
+    if (total < MIN_ORDER_VALUE) {
+      await ctx.reply(`❌ Bestellung abgebrochen. Der Mindestbestellwert von ${MIN_ORDER_VALUE.toFixed(2)}€ wurde nicht erreicht.`);
       return;
     }
 
     const createOrderPayload = {
-      telegramChatId: userId.toString(),
-      customerName: state.customerName!,
-      street: state.street!,
-      houseNumber: state.houseNumber!,
-      postcode: state.postcode!,
-      city: state.city || 'Leverkusen',
-      phone: state.phone!,
-      email: state.email === 'Keine' ? undefined : state.email,
-      deliveryNote:
-        state.deliveryNote === 'Keine' ? undefined : state.deliveryNote,
-      totalPrice: totalOrderPrice,
-      positions: cart.map((item) => ({
+      telegramChatId: session.telegramChatId,
+      customerName: contact.customerName!,
+      street: contact.street!,
+      houseNumber: contact.houseNumber!,
+      postcode: contact.postcode!,
+      city: contact.city || 'Leverkusen',
+      phone: contact.phone!,
+      email: contact.email === 'Keine' ? undefined : contact.email,
+      deliveryNote: contact.deliveryNote === 'Keine' ? undefined : contact.deliveryNote,
+      totalPrice: total,
+      positions: session.tempCart.map((item) => ({
         productId: Number(item.productId),
         quantity: Number(item.quantity),
-        priceSnapshot: Number(item.price),
+        priceSnapshot: Number(item.singlePrice || 0),
         selectedSize: item.size || undefined,
         selectedOption: item.option || undefined,
-        comment: item.remark === 'Keine' ? undefined : item.remark,
+        comment: item.comment || undefined, // Mapped jetzt sauber auf deine Spalte
         selectedIngredientsIds: [],
         removedIngredientsIds: [],
       })),
     };
 
     try {
-      const baseUrl =
-        process.env.BACKEND_URL ||
-        'https://pml-enterprise-database.onrender.com';
+      const baseUrl = process.env.BACKEND_URL || 'https://pml-enterprise-database.onrender.com';
       const apiUrl = `${baseUrl}/orders`;
 
       await firstValueFrom(this.httpService.post(apiUrl, createOrderPayload));
 
-      // GEÄNDERT: Zeigt das dedizierte Live-Tracking-Fenster an, anstatt das Startmenü neu zu laden
-      await ctx.editMessageText(
+      await ctx.reply(
         `🎉 *Vielen Dank für deine Bestellung!*\n\n` +
         `Deine Bestellung wurde erfolgreich übermittelt. 🚀\n\n` +
         `⏳ *Status:* Warten auf Bestätigung...\n\n` +
-        `💡 _Du musst nichts weiter tun. Sobald sich der Status deiner Bestellung ändert, kriegst du hier im Chat sofort eine Live-Benachrichtigung von mir!_`,
-        { parse_mode: 'Markdown' },
+        `💡 _Sobald sich der Status deiner Bestellung ändert, kriegst du hier im Chat sofort eine Live-Benachrichtigung von mir!_`,
+        { parse_mode: 'Markdown' }
       );
 
-      delete this.carts[userId];
-      this.userStates[userId] = { step: OrderStep.NONE };
+      session.state = 'IDLE';
+      session.tempCart = [];
+      session.contactData = {};
+      session.chatHistory = [];
+      await this.sessionRepository.save(session);
 
     } catch (err: any) {
       console.error(
@@ -597,157 +342,6 @@ export class TelegramUpdate {
         err?.response?.data || err.message
       );
       await ctx.reply('❌ Ups! Fehler beim Übermitteln der Bestellung an den Server. Bitte versuche es später noch einmal oder rufe uns an.');
-    }
-    await ctx.answerCbQuery();
-  }
-
-  @Action('cancel_order')
-  async onCancelOrder(@Ctx() ctx: Context) {
-    const userId = ctx.from?.id;
-    if (userId) this.userStates[userId] = { step: OrderStep.NONE };
-
-    await ctx.editMessageText(
-      '❌ Die Bestellung wurde abgebrochen und das Eingabefenster geschlossen.',
-    );
-    await ctx.answerCbQuery();
-
-    await this.onStart(ctx);
-  }
-
-  @On('message')
-  async onMessage(@Ctx() ctx: Context, @Message('text') text: string) {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    const userState = this.userStates[userId];
-    if (!userState || userState.step === OrderStep.NONE) return;
-
-    if (userState.step === OrderStep.WAITING_FOR_REMARK) {
-      await this.addProductToCartFinal(ctx, text);
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_NAME) {
-      const nameClean = text.trim();
-      if (nameClean.length < 2 || nameClean.length > 150) {
-        await ctx.reply(
-          '⚠️ Der Name muss zwischen 2 und 150 Zeichen lang sein. Bitte erneut eingeben:',
-        );
-        return;
-      }
-      userState.customerName = nameClean;
-      if (!userState.street) {
-        userState.step = OrderStep.WAITING_FOR_STREET;
-        await ctx.reply('🏠 Bitte gib deine *Straße* ein:', {
-          parse_mode: 'Markdown',
-        });
-      } else {
-        userState.step = OrderStep.NONE;
-        await this.showOrderSummary(ctx);
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_STREET) {
-      userState.street = text.trim();
-      if (!userState.houseNumber) {
-        userState.step = OrderStep.WAITING_FOR_HOUSE_NUMBER;
-        await ctx.reply('🔢 Bitte gib deine *Hausnummer* ein:', {
-          parse_mode: 'Markdown',
-        });
-      } else {
-        userState.step = OrderStep.NONE;
-        await this.showOrderSummary(ctx);
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_HOUSE_NUMBER) {
-      userState.houseNumber = text.trim();
-      if (!userState.postcode) {
-        userState.step = OrderStep.WAITING_FOR_POSTCODE;
-        await ctx.reply('📮 Bitte gib deine *Postleitzahl (PLZ)* ein:', {
-          parse_mode: 'Markdown',
-        });
-      } else {
-        userState.step = OrderStep.NONE;
-        await this.showOrderSummary(ctx);
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_POSTCODE) {
-      const plzInput = text.trim();
-      if (!VALID_POSTCODES.includes(plzInput)) {
-        await ctx.reply('❌ Wir liefern leider nicht an diese Postleitzahl. Bitte gib eine gültige PLZ aus Leverkusen ein (51371, 51373, 51375, 51377, 51379, 51381):');
-        return;
-      }
-      userState.postcode = plzInput;
-      if (!userState.city) { 
-        userState.step = OrderStep.WAITING_FOR_CITY; 
-        await ctx.reply('🏙️ Bitte gib deine *Stadt / Wohnort* ein:', { parse_mode: 'Markdown' }); 
-      } else { 
-        userState.step = OrderStep.NONE; 
-        await this.showOrderSummary(ctx); 
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_CITY) {
-      userState.city = text.trim();
-      if (!userState.phone) { 
-        userState.step = OrderStep.WAITING_FOR_PHONE; 
-        await ctx.reply('📞 Bitte gib deine *Telefonnummer* ein:', { parse_mode: 'Markdown' }); 
-      } else { 
-        userState.step = OrderStep.NONE; 
-        await this.showOrderSummary(ctx); 
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_PHONE) {
-      const phoneClean = text.trim();
-      if (!PHONE_REGEX.test(phoneClean)) {
-        await ctx.reply('⚠️ Ungültige Telefonnummer! Bitte nutze nur Zahlen, Leerzeichen, / oder - (6 bis 20 Zeichen):');
-        return;
-      }
-      userState.phone = phoneClean;
-      if (userState.email === undefined) { 
-        userState.step = OrderStep.WAITING_FOR_EMAIL; 
-        await ctx.reply('📧 Bitte gib deine *E-Mail-Adresse* ein (oder schreibe "Keine"):', { parse_mode: 'Markdown' }); 
-      } else { 
-        userState.step = OrderStep.NONE; 
-        await this.showOrderSummary(ctx); 
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_EMAIL) {
-      const emailInput = text.trim();
-      if (emailInput.toLowerCase() !== 'keine') {
-        if (!EMAIL_REGEX.test(emailInput)) {
-          await ctx.reply('⚠️ Bitte gib eine gültige E-Mail-Adresse ein (oder schreibe "Keine"):');
-          return;
-        }
-        userState.email = emailInput;
-      } else {
-        userState.email = 'Keine';
-      }
-
-      if (userState.deliveryNote === undefined) { 
-        userState.step = OrderStep.WAITING_FOR_DELIVERY_NOTE; 
-        await ctx.reply('📝 Möchtest du eine *Lieferanmerkung* hinzufügen? (Oder schreibe "Keine"):', { parse_mode: 'Markdown' }); 
-      } else { 
-        userState.step = OrderStep.NONE; 
-        await this.showOrderSummary(ctx); 
-      }
-      return;
-    }
-
-    if (userState.step === OrderStep.WAITING_FOR_DELIVERY_NOTE) {
-      userState.deliveryNote = text.trim();
-      userState.step = OrderStep.NONE;
-      await this.showOrderSummary(ctx);
     }
   }
 }

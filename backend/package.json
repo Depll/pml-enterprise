@@ -28,6 +28,7 @@
     "@nestjs/typeorm": "^11.0.2",
     "axios": "^1.18.1",
     "nestjs-telegraf": "^2.9.1",
+    "openai": "^6.46.0",
     "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
