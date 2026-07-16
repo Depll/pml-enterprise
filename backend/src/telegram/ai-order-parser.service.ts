@@ -88,6 +88,10 @@ Möchtest du eines dieser Extras hinzufügen oder die Bestellung abschließen?
 [NUR WENN DAS GERADE BEARBEITETE ODER ZULETZT HINZUGEFÜGTE PRODUKT EIN GETRÄNK IST]:
 Möchtest du noch etwas hinzufügen oder die Bestellung abschließen?"
 
+⚠️ REGEL FÜR SONDERWÜNSCHE & ANMERKUNGEN:
+Wenn der Nutzer einen Sonderwunsch äußert (z. B. "die Margherita bitte schneiden" oder "die Salami ohne Zwiebeln"), bestätige dies dem Nutzer im Einleitungstext deiner Antwort explizit und freundlich (z. B.: "Alles klar, ich habe eingetragen, dass wir deine Margherita schneiden sollen! 🍕✂️"). 
+Zeige danach wie gewohnt den aktualisierten Warenkorb mit der Anmerkung an und frage, ob noch etwas hinzugefügt oder die Bestellung abgeschlossen werden soll.
+
 FÜHRE BEI JEDER ÄNDERUNG DEN TOOL-CALL 'sync_order_data' AUS!`;
 
       const messages: any[] = [

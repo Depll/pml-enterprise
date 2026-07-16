@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -13,6 +15,8 @@ import { UserSessionEntity } from '../database/entities/user-session.entity';
 import { AiOrderParserService } from './ai-order-parser.service';
 import { DialogHelperService } from './dialog-helper.service';
 import { Logger } from '@nestjs/common';
+import FormData from 'form-data';
+import axios from 'axios';
 
 const VALID_POSTCODES = ['51371', '51373', '51375', '51377', '51379', '51381'];
 const PHONE_REGEX = /^[0-9+\s/-]{6,20}$/;
@@ -76,137 +80,215 @@ export class TelegramUpdate {
     await this.onStart(ctx);
   }
 
-  @On('text')
-  async onMessage(@Ctx() ctx: Context, @Message('text') text: string) {
-    const userId = ctx.from?.id.toString();
-    if (!userId) return;
+  @On('voice')
+  async onVoiceMessage(@Ctx() ctx: Context, @Message('voice') voice: any) {
+    try {
+      const userId = ctx.from?.id.toString();
+      if (!userId) return;
 
-    const session = await this.getOrCreateSession(userId);
-    const trimmedText = text.trim();
-    const lowerText = trimmedText.toLowerCase();
+      await ctx.sendChatAction('typing');
 
-    // 1. WENN EIN KONTAKT-STATE AKTIV IST: Verarbeite ausschließlich den State und brich ab!
-    if (session.state && session.state !== 'IDLE') {
-      await this.handleContactStateMachine(ctx, session, trimmedText);
-      return; 
-    }
+      // 1. Hole den Download-Link von den Telegram-Servern
+      const fileId = voice.file_id;
+      const fileUrl = await ctx.telegram.getFileLink(fileId);
 
-    // 2. STRIKTER CHECKOUT-TRIGGER (Nur wenn der User explizit bestätigen will!)
-    if (
-      (lowerText === 'ja' || lowerText === 'bestätigen' || lowerText === 'bestätige') &&
-      session.tempCart && session.tempCart.length > 0 &&
-      this.isContactDataComplete(session)
-    ) {
-      await this.handleFinalOrderCheckout(ctx, session);
-      return;
-    }
+      // 2. Sende den Audio-Stream an OpenAI Whisper zur Transkription
+      const transcribedText = await this.transcribeVoice(fileUrl.href);
 
-    session.chatHistory.push({ role: 'user', content: text });
-    if (session.chatHistory.length > 12) {
-      session.chatHistory.shift();
-    }
-
-    await ctx.sendChatAction('typing');
-
-    const { replyText, parsedData } = await this.aiParserService.parseUserText(
-      text,
-      session.tempCart,
-      session.contactData,
-      session.chatHistory
-    );
-
-    const data = parsedData as any;
-
-    if (data) {
-      if (data.userIntent === 'CANCEL_ORDER') {
-        await this.onStart(ctx);
+      if (!transcribedText || transcribedText.trim().length === 0) {
+        await ctx.reply('🎤 Ich habe deine Sprachnachricht empfangen, konnte aber leider kein Wort verstehen.');
         return;
       }
 
-      if (data.items && data.items.length > 0) {
-        session.tempCart = data.items;
+      // 3. User Feedback spiegeln
+      await ctx.reply(`🎤 _Ich habe verstanden:_ "${transcribedText}"`, { parse_mode: 'Markdown' });
+
+      // 4. Leite den Text nahtlos an den bestehenden Text-Handler weiter
+      await this.onMessage(ctx, transcribedText);
+
+    } catch (error) {
+      this.logger.error('Fehler bei der Sprachnachrichten-Verarbeitung:', error);
+      await ctx.reply('Ups, da ist ein Fehler beim Verarbeiten deiner Sprachnachricht aufgetreten. Bitte versuche es noch einmal oder tippe deine Bestellung!');
+    }
+  }
+
+  @On('text')
+  async onMessage(@Ctx() ctx: Context, @Message('text') text: string) {
+    try {
+      const userId = ctx.from?.id.toString();
+      if (!userId) return;
+
+      const session = await this.getOrCreateSession(userId);
+      const trimmedText = text.trim();
+      const lowerText = trimmedText.toLowerCase();
+
+      // 1. WENN EIN KONTAKT-STATE AKTIV IST
+      if (session.state && session.state !== 'IDLE') {
+        await this.handleContactStateMachine(ctx, session, trimmedText);
+        return; 
       }
 
-      // KORREKTUR-TRIGGER: Wechselt gezielt in den State für die Korrektur
+      // 2. STRIKTER CHECKOUT-TRIGGER
       if (
-        data.userIntent === 'EDITING_CONTACTS' || 
-        lowerText.includes('falsch') || 
-        lowerText.includes('ändern') || 
-        lowerText.includes('korrigieren') ||
-        lowerText.includes('korregieren')
+        (lowerText === 'ja' || lowerText === 'bestätigen' || lowerText === 'bestätige') &&
+        session.tempCart && session.tempCart.length > 0 &&
+        this.isContactDataComplete(session)
       ) {
-        if (lowerText.includes('telefon') || lowerText.includes('tel') || lowerText.includes('nummer') || lowerText.includes('handy')) {
-          session.state = 'AWAITING_PHONE';
-          await this.sessionRepository.save(session);
-          await ctx.reply('📞 Bitte gib deine korrekte Telefonnummer ein:');
-          return;
-        }
-        if (lowerText.includes('straße') || lowerText.includes('strasse') || lowerText.includes('adresse') || lowerText.includes('anschrift')) {
-          session.state = 'AWAITING_STREET';
-          await this.sessionRepository.save(session);
-          await ctx.reply('🏠 Bitte gib deine korrekte Straße ein:');
-          return;
-        }
-        if (lowerText.includes('name')) {
-          session.state = 'AWAITING_NAME';
-          await this.sessionRepository.save(session);
-          await ctx.reply('👤 Bitte gib deinen korrekten Namen ein:');
-          return;
-        }
-        if (lowerText.includes('plz') || lowerText.includes('postleitzahl')) {
-          session.state = 'AWAITING_POSTCODE';
-          await this.sessionRepository.save(session);
-          await ctx.reply(`📮 Bitte gib deine korrekte Postleitzahl (PLZ) ein:`);
-          return;
-        }
-        if (lowerText.includes('hausnummer') || lowerText.includes('nr')) {
-          session.state = 'AWAITING_HOUSE_NUMBER';
-          await this.sessionRepository.save(session);
-          await ctx.reply('🔢 Bitte gib deine korrekte Hausnummer ein:');
-          return;
-        }
-        if (lowerText.includes('stadt') || lowerText.includes('ort') || lowerText.includes('wohnort')) {
-          session.state = 'AWAITING_CITY';
-          await this.sessionRepository.save(session);
-          await ctx.reply('🏙️ Bitte gib deinen korrekten Wohnort ein:');
-          return;
-        }
-      }
-
-      if (data.userIntent === 'CONFIRM_ORDER') {
-        if (!this.isContactDataComplete(session)) {
-          session.state = 'AWAITING_NAME';
-          await this.sessionRepository.save(session);
-          await ctx.reply('👤 Bitte gib deinen vollständigen Namen ein:');
-          return;
-        }
         await this.handleFinalOrderCheckout(ctx, session);
         return;
       }
 
-      await this.sessionRepository.save(session);
-    }
-
-    let finalReply = replyText;
-    
-    if (!finalReply || finalReply.trim().length === 0) {
-      if (session.tempCart && session.tempCart.length > 0) {
-        const { total, itemsWithPrices } = await this.calculateCartTotal(session.tempCart);
-        let cartSummary = `Super, ich habe deine Bestellung aktualisiert! 🛒\n\n*Dein aktueller Warenkorb:*\n`;
-        itemsWithPrices.forEach(item => {
-          cartSummary += `• ${item.quantity}x ${item.name} [${item.size || 'Normal'}]: ${item.totalPrice.toFixed(2)}€\n`;
-          if (item.extras && item.extras.length > 0) cartSummary += `  _+ Extras:_ ${item.extras.join(', ')}\n`;
-        });
-        cartSummary += `\n*Gesamtpreis:* ${total.toFixed(2)}€\n\nMöchtest du noch etwas hinzufügen oder die Bestellung abschließen?`;
-        finalReply = cartSummary;
-      } else {
-        finalReply = 'Alles klar, habe ich eingetragen! Was darf ich noch für dich tun?';
+      session.chatHistory.push({ role: 'user', content: text });
+      if (session.chatHistory.length > 12) {
+        session.chatHistory.shift();
       }
-    }
 
-    await ctx.reply(finalReply, { parse_mode: 'Markdown' });
-    session.chatHistory.push({ role: 'assistant', content: finalReply });
-    await this.sessionRepository.save(session);
+      await ctx.sendChatAction('typing');
+
+      const { replyText, parsedData } = await this.aiParserService.parseUserText(
+        text,
+        session.tempCart,
+        session.contactData,
+        session.chatHistory
+      );
+
+      const data = parsedData as any;
+
+      if (data) {
+        if (data.userIntent === 'CANCEL_ORDER') {
+          await this.onStart(ctx);
+          return;
+        }
+
+        // ABSICHERUNG DER ITEMS: Verhindert Abstürze durch unvollständige Tool-Calls bei Einwort-Dialogen
+        if (data.items && Array.isArray(data.items)) {
+          const validItems = data.items.map((item: any) => {
+            const fallbackItem = session.tempCart && session.tempCart.length > 0 
+              ? session.tempCart[session.tempCart.length - 1] 
+              : null;
+
+            return {
+              productId: item.productId ? Number(item.productId) : (fallbackItem?.productId ? Number(fallbackItem.productId) : 1),
+              name: item.name || (fallbackItem?.name || 'Margherita'),
+              size: item.size || (fallbackItem?.size || 'Normal'),
+              option: item.option || (fallbackItem?.option || null),
+              extras: Array.isArray(item.extras) ? item.extras : (fallbackItem?.extras || []),
+              remove: Array.isArray(item.remove) ? item.remove : (fallbackItem?.remove || []),
+              quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
+              comment: item.comment || (fallbackItem?.comment || null)
+            };
+          });
+          
+          session.tempCart = validItems;
+        }
+
+        // KORREKTUR-TRIGGER
+        if (
+          data.userIntent === 'EDITING_CONTACTS' || 
+          lowerText.includes('falsch') || 
+          lowerText.includes('ändern') || 
+          lowerText.includes('korrigieren') ||
+          lowerText.includes('korregieren')
+        ) {
+          if (lowerText.includes('telefon') || lowerText.includes('tel') || lowerText.includes('nummer') || lowerText.includes('handy')) {
+            session.state = 'AWAITING_PHONE';
+            await this.sessionRepository.save(session);
+            await ctx.reply('📞 Bitte gib deine korrekte Telefonnummer ein:');
+            return;
+          }
+          if (lowerText.includes('straße') || lowerText.includes('strasse') || lowerText.includes('adresse') || lowerText.includes('anschrift')) {
+            session.state = 'AWAITING_STREET';
+            await this.sessionRepository.save(session);
+            await ctx.reply('🏠 Bitte gib deine korrekte Straße ein:');
+            return;
+          }
+          if (lowerText.includes('name')) {
+            session.state = 'AWAITING_NAME';
+            await this.sessionRepository.save(session);
+            await ctx.reply('👤 Bitte gib deinen korrekten Namen ein:');
+            return;
+          }
+          if (lowerText.includes('plz') || lowerText.includes('postleitzahl')) {
+            session.state = 'AWAITING_POSTCODE';
+            await this.sessionRepository.save(session);
+            await ctx.reply(`📮 Bitte gib deine korrekte Postleitzahl (PLZ) ein:`);
+            return;
+          }
+          if (lowerText.includes('hausnummer') || lowerText.includes('nr')) {
+            session.state = 'AWAITING_HOUSE_NUMBER';
+            await this.sessionRepository.save(session);
+            await ctx.reply('🔢 Bitte gib deine korrekte Hausnummer ein:');
+            return;
+          }
+          if (lowerText.includes('stadt') || lowerText.includes('ort') || lowerText.includes('wohnort')) {
+            session.state = 'AWAITING_CITY';
+            await this.sessionRepository.save(session);
+            await ctx.reply('🏙️ Bitte gib deinen korrekten Wohnort ein:');
+            return;
+          }
+        }
+
+        if (data.userIntent === 'CONFIRM_ORDER') {
+          if (!this.isContactDataComplete(session)) {
+            session.state = 'AWAITING_NAME';
+            await this.sessionRepository.save(session);
+            await ctx.reply('👤 Bitte gib deinen vollständigen Namen ein:');
+            return;
+          }
+          await this.handleFinalOrderCheckout(ctx, session);
+          return;
+        }
+
+        await this.sessionRepository.save(session);
+      }
+
+      let finalReply = replyText;
+      
+      // Ausfallsichere Generierung der Antwort und Nachfrage-Logik
+      if (!finalReply || finalReply.trim().length === 0) {
+        if (session.tempCart && session.tempCart.length > 0) {
+          const lastItem = session.tempCart[session.tempCart.length - 1];
+          const menu = await this.menuService.getMenu();
+
+          // 1. Prüfen, ob wichtige Angaben beim letzten Produkt fehlen (Größe, Option)
+          const missingSpecReply = this.dialogHelperService.generateMissingSpecificationReply(lastItem, menu);
+          
+          if (missingSpecReply) {
+            finalReply = missingSpecReply;
+          } else {
+            // 2. Standard-Warenkorb-Zusammenfassung berechnen
+            const { total, itemsWithPrices } = await this.calculateCartTotal(session.tempCart);
+            
+            // Freundliche Einleitung generieren, falls ein Kommentar vorhanden ist
+            let introText = `Super, ich habe deine Bestellung aktualisiert! 🛒`;
+            
+            // Wenn das letzte geänderte Item einen Kommentar hat, bestätigen wir das aktiv
+            if (lastItem.comment) {
+              introText = `Alles klar, ich habe deine Anmerkung *"${lastItem.comment}"* für die **${lastItem.name}** gespeichert! 📝✨`;
+            }
+
+            let cartSummary = `${introText}\n\n*Dein aktueller Warenkorb:*\n`;
+            itemsWithPrices.forEach(item => {
+              cartSummary += `• ${item.quantity}x ${item.name} [${item.size || 'Normal'}]: ${item.totalPrice.toFixed(2)}€\n`;
+              if (item.extras && item.extras.length > 0) cartSummary += `  _+ Extras:_ ${item.extras.join(', ')}\n`;
+              if (item.comment) cartSummary += `  _Anmerkung:_ "${item.comment}"\n`;
+            });
+            cartSummary += `\n*Gesamtpreis:* ${total.toFixed(2)}€\n\nMöchtest du noch etwas hinzufügen oder die Bestellung abschließen?`;
+            finalReply = cartSummary;
+          }
+        } else {
+          // Falls der Warenkorb komplett leer ist und der User z.B. nur "bitte schneiden" schreibt:
+          finalReply = 'Für welches Gericht ist der Sonderwunsch gedacht? Erzähl mir einfach, was du bestellen möchtest! 🍕';
+        }
+      }
+
+      await ctx.reply(finalReply, { parse_mode: 'Markdown' });
+      session.chatHistory.push({ role: 'assistant', content: finalReply });
+      await this.sessionRepository.save(session);
+    } catch (e) {
+      this.logger.error('Kritischer Fehler im onMessage Handler:', e);
+      await ctx.reply('Ups, da ist ein Fehler aufgetreten. Bitte versuche es noch einmal mit /clear!');
+    }
   }
 
   private async handleContactStateMachine(ctx: Context, session: UserSessionEntity, trimmedText: string) {
@@ -351,6 +433,7 @@ export class TelegramUpdate {
   }
 
   private isContactDataComplete(session: UserSessionEntity): boolean {
+    if (!session || !session.contactData) return false;
     const contact = session.contactData;
     return !!(
       contact.customerName &&
@@ -366,38 +449,60 @@ export class TelegramUpdate {
     let total = 0;
     const itemsWithPrices: any[] = [];
 
+    if (!tempCart || !Array.isArray(tempCart) || tempCart.length === 0) {
+      return { total: 0, itemsWithPrices: [] };
+    }
+
     for (const cartItem of tempCart) {
+      if (!cartItem) continue;
       let dbProduct: any = null;
-      for (const cat of menu) {
-        const p = cat.products.find((p) => p.id === cartItem.productId);
-        if (p) {
-          dbProduct = p;
-          break;
+
+      // 1. Abgleich über ID (Typsicher, falls String vs. Number)
+      if (Array.isArray(menu)) {
+        for (const cat of menu) {
+          if (!cat || !cat.products) continue;
+          dbProduct = cat.products.find((p: any) => p && String(p.id) === String(cartItem.productId));
+          if (dbProduct) break;
+        }
+      }
+
+      // 2. Fallback über Namens-Matching
+      if (!dbProduct && cartItem.name && Array.isArray(menu)) {
+        const cleanCartName = String(cartItem.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const cat of menu) {
+          if (!cat || !cat.products) continue;
+          dbProduct = cat.products.find((p: any) => {
+            if (!p || !p.name) return false;
+            const cleanDbName = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return cleanDbName.includes(cleanCartName) || cleanCartName.includes(cleanDbName);
+          });
+          if (dbProduct) break;
         }
       }
 
       if (!dbProduct) continue;
 
-      let itemBasePrice = Number(dbProduct.price);
+      let itemBasePrice = Number(dbProduct.price || 8.0);
       let sizeExtraIngredientPrice = 1.5;
 
       if (cartItem.size && dbProduct.sizes) {
         const selectedSize = dbProduct.sizes.find(
-          (s: any) => s.name.toLowerCase().trim() === cartItem.size.toLowerCase().trim()
+          (s: any) => s && s.name && String(s.name).toLowerCase().trim() === String(cartItem.size).toLowerCase().trim()
         );
         if (selectedSize) {
           itemBasePrice = Number(selectedSize.price);
-          if (selectedSize.extraIngredientPrice !== undefined) {
+          if (selectedSize.extraIngredientPrice !== undefined && selectedSize.extraIngredientPrice !== null) {
             sizeExtraIngredientPrice = Number(selectedSize.extraIngredientPrice);
           }
         }
       }
 
       let extrasTotal = 0;
-      if (cartItem.extras && cartItem.extras.length > 0 && dbProduct.ingredients) {
+      if (cartItem.extras && Array.isArray(cartItem.extras) && cartItem.extras.length > 0 && dbProduct.ingredients) {
         for (const extraName of cartItem.extras) {
+          if (!extraName) continue;
           const dbIngredient = dbProduct.ingredients.find(
-            (i: any) => i.name.toLowerCase().trim() === extraName.toLowerCase().trim()
+            (i: any) => i && i.name && String(i.name).toLowerCase().trim() === String(extraName).toLowerCase().trim()
           );
           
           if (dbIngredient) {
@@ -414,11 +519,12 @@ export class TelegramUpdate {
       }
 
       const singlePrice = itemBasePrice + extrasTotal;
-      const singleItemSum = singlePrice * cartItem.quantity;
+      const singleItemSum = singlePrice * (cartItem.quantity || 1);
       total += singleItemSum;
 
       itemsWithPrices.push({
         ...cartItem,
+        name: dbProduct.name,
         singlePrice: singlePrice,
         totalPrice: singleItemSum,
       });
@@ -472,8 +578,6 @@ export class TelegramUpdate {
       await ctx.reply(summaryText, { parse_mode: 'Markdown' });
     }
 
-    // Damit eine anschließende "nein"-Antwort der KI nicht als Bestätigung fehlinterpretiert wird, 
-    // löschen wir vorsorglich die Chat-History für die Bestätigungsabfrage oder halten sie sauber.
     session.chatHistory = [{ role: 'assistant', content: summaryText }];
     await this.sessionRepository.save(session);
   }
@@ -500,16 +604,19 @@ export class TelegramUpdate {
       email: contact.email === 'Keine' ? undefined : contact.email,
       deliveryNote: contact.deliveryNote === 'Keine' ? undefined : contact.deliveryNote,
       totalPrice: total,
-      positions: itemsWithPrices.map((item) => ({
-        productId: Number(item.productId),
-        quantity: Number(item.quantity),
-        priceSnapshot: Number(item.singlePrice || 0),
-        selectedSize: item.size || undefined,
-        selectedOption: item.option || undefined,
-        comment: item.comment || undefined,
-        selectedIngredientsIds: [],
-        removedIngredientsIds: [],
-      })),
+      positions: itemsWithPrices.map((item) => {
+        const convertedId = Number(item.productId);
+        return {
+          productId: isNaN(convertedId) ? 1 : convertedId,
+          quantity: Number(item.quantity || 1),
+          priceSnapshot: Number(item.singlePrice || 0),
+          selectedSize: item.size || undefined,
+          selectedOption: item.option || undefined,
+          comment: item.comment || undefined,
+          selectedIngredientsIds: [],
+          removedIngredientsIds: [],
+        };
+      }),
     };
 
     try {
@@ -548,5 +655,32 @@ export class TelegramUpdate {
         { parse_mode: 'Markdown' }
       );
     }
+  }
+
+  private async transcribeVoice(fileUrl: string): Promise<string> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY ist in den Umgebungsvariablen nicht gesetzt!');
+    }
+
+    const response = await axios.get(fileUrl, { responseType: 'stream' });
+
+    const formData = new FormData();
+    formData.append('file', response.data, 'voice.ogg');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'de');
+
+    const whisperResponse = await axios.post(
+      'https://api.openai.com/v1/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${apiKey}`,
+        },
+      }
+    );
+
+    return whisperResponse.data.text;
   }
 }
