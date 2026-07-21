@@ -83,6 +83,10 @@ export class CreateOrderDto {
   @IsString({ message: 'Die Lieferanmerkung muss ein Text sein.' })
   deliveryNote?: string;
 
+  @IsOptional()
+  @IsString({ message: 'Der Gutscheincode muss ein Text sein.' })
+  voucherCode?: string;
+
   @IsNumber({}, { message: 'Der Gesamtpreis muss eine Zahl sein.' })
   @Min(0, { message: 'Der Gesamtpreis kann nicht negativ sein.' })
   totalPrice: number;

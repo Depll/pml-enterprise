@@ -1,31 +1,86 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenCheckout: (finalPrice: number) => void;
+  onOpenCheckout: (finalPrice: number, voucherCode?: string) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenCheckout }) => {
   const { cart, removeFromCart, updateQuantity, totalPrice } = useCart();
 
+  // Gutschein States
+  const [voucherInput, setVoucherInput] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<{
+    code: string;
+    discountAmount: number;
+  } | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+
   if (!isOpen) return null;
 
+  // 1. Web-Rabatt (10%)
   const DISCOUNT_PERCENT = 10;
-  const discountAmount = totalPrice * (DISCOUNT_PERCENT / 100);
-  const finalTotal = totalPrice - discountAmount;
+  const webDiscountAmount = totalPrice * (DISCOUNT_PERCENT / 100);
+  
+  // 2. Gutschein-Rabatt
+  const voucherDiscountAmount = appliedVoucher ? appliedVoucher.discountAmount : 0;
+
+  // 3. Finale Gesamtsumme
+  const finalTotal = Math.max(0, totalPrice - webDiscountAmount - voucherDiscountAmount);
 
   const MINIMUM_ORDER_VALUE = 15.0;
   const isBelowMinimumOrder = finalTotal < MINIMUM_ORDER_VALUE && cart.length > 0;
   const missingAmount = MINIMUM_ORDER_VALUE - finalTotal;
+
+  // Gutschein am Backend prüfen
+  const handleApplyVoucher = async () => {
+    setVoucherError(null);
+    if (!voucherInput.trim()) return;
+
+    setIsValidating(true);
+    try {
+      const response = await fetch('/vouchers/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: voucherInput.trim(),
+          currentCartTotal: totalPrice - webDiscountAmount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Ungültiger Gutscheincode');
+      }
+
+      setAppliedVoucher({
+        code: data.code,
+        discountAmount: Number(data.discountAmount),
+      });
+      setVoucherInput('');
+    } catch (err: any) {
+      setAppliedVoucher(null);
+      setVoucherError(err.message || 'Gutschein konnte nicht eingelöst werden');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherError(null);
+  };
 
   return (
     <div className="pml-cart-overlay" onClick={onClose}>
       <div className="pml-cart-drawer" onClick={(e) => e.stopPropagation()}>
         
         <div className="pml-cart-header">
-          <h2>Dein Warenkorbb</h2>
+          <h2>Dein Warenkorb</h2>
           <span className="pml-close-cart-btn" onClick={onClose}>&times;</span>
         </div>
 
@@ -114,7 +169,73 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#10b981', fontWeight: '500' }}>
                 <span>🌐 Web-Rabatt (10%):</span>
-                <span>-{discountAmount.toFixed(2).replace('.', ',')} €</span>
+                <span>-{webDiscountAmount.toFixed(2).replace('.', ',')} €</span>
+              </div>
+
+              {/* Angewendeter Gutschein im Preisbaum */}
+              {appliedVoucher && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#3b82f6', fontWeight: '500' }}>
+                  <span>🎟️ Gutschein ({appliedVoucher.code}):</span>
+                  <span>-{appliedVoucher.discountAmount.toFixed(2).replace('.', ',')} €</span>
+                </div>
+              )}
+
+              {/* Gutscheincode Eingabebereich */}
+              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
+                {!appliedVoucher ? (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Gutscheincode"
+                      value={voucherInput}
+                      onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                      style={{
+                        flex: 1,
+                        padding: '6px 10px',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e0',
+                        fontSize: '13px',
+                        textTransform: 'uppercase'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyVoucher}
+                      disabled={isValidating || !voucherInput.trim()}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#319795',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        opacity: isValidating ? 0.6 : 1
+                      }}
+                    >
+                      {isValidating ? '...' : 'Einlösen'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ebf8ff', padding: '6px 10px', borderRadius: '4px', border: '1px solid #bee3f8' }}>
+                    <span style={{ fontSize: '12px', color: '#2b6cb0', fontWeight: 'bold' }}>
+                      🎟️ {appliedVoucher.code} aktiv
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveVoucher}
+                      style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      Entfernen ✕
+                    </button>
+                  </div>
+                )}
+                {voucherError && (
+                  <div style={{ color: '#e53e3e', fontSize: '12px', marginTop: '4px' }}>
+                    {voucherError}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -130,7 +251,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
             <button 
               className="pml-btn-address-submit" 
               disabled={cart.length === 0 || isBelowMinimumOrder}
-              onClick={() => onOpenCheckout(finalTotal)}
+              onClick={() => onOpenCheckout(finalTotal, appliedVoucher?.code)}
               style={{
                 opacity: (cart.length === 0 || isBelowMinimumOrder) ? 0.5 : 1,
                 cursor: (cart.length === 0 || isBelowMinimumOrder) ? 'not-allowed' : 'pointer'

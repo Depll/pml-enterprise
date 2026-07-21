@@ -4,6 +4,7 @@ import { CategoryEntity } from '../entities/category.entity';
 import { ProductEntity } from '../entities/product.entity';
 import { IngredientEntity } from '../entities/ingredient.entity'; // Sicherstellen, dass sie importiert ist
 import { DeliveryAreaEntity } from '../entities/delivery-area.entity'; // Deine neue Entity importieren
+import { VoucherEntity } from '../entities/voucher.entity'; // Deine neue Entity importieren
 import { SeedService } from './seed.service';
 
 @Module({
@@ -14,6 +15,7 @@ import { SeedService } from './seed.service';
       ProductEntity,
       IngredientEntity,
       DeliveryAreaEntity,
+      VoucherEntity, // <-- Hier die VoucherEntity hinzufügen
     ]),
   ],
   providers: [SeedService],

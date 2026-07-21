@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CategoryEntity } from '../entities/category.entity';
+import { VoucherEntity } from '../entities/voucher.entity';
 import { ProductEntity, ProductSize } from '../entities/product.entity';
 import { IngredientEntity } from '../entities/ingredient.entity';
 import * as fs from 'fs';
@@ -32,6 +33,8 @@ export class SeedService {
     private readonly ingredientRepository: Repository<IngredientEntity>,
     @InjectRepository(DeliveryAreaEntity)
     private readonly deliveryAreaRepository: Repository<DeliveryAreaEntity>,
+    @InjectRepository(VoucherEntity)
+    private readonly voucherRepository: Repository<VoucherEntity>,
   ) {}
 
   private getDefaultProductMeta(
@@ -227,5 +230,33 @@ export class SeedService {
     console.log(
       'Datenbank-Seeding mitsamt allen Korrekturen erfolgreich beendet!',
     );
+
+    // 5. Test-Gutscheine anlegen
+    const testVouchers = [
+      {
+        code: 'PML10',
+        type: 'PERCENTAGE' as const,
+        value: 10.0, // 10% Rabatt
+        minOrderValue: 15.0, // ab 15€
+        isActive: true,
+      },
+      {
+        code: 'WILLKOMMEN5',
+        type: 'FIXED' as const,
+        value: 5.0, // 5€ Rabatt
+        minOrderValue: 20.0, // ab 20€
+        isActive: true,
+      },
+    ];
+
+    for (const vData of testVouchers) {
+      const exists = await this.voucherRepository.findOne({
+        where: { code: vData.code },
+      });
+      if (!exists) {
+        await this.voucherRepository.save(this.voucherRepository.create(vData));
+        console.log(`🎟️ Gutschein ${vData.code} angelegt!`);
+      }
+    }
   }
 }

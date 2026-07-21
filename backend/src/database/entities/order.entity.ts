@@ -55,6 +55,18 @@ export class Order {
   })
   totalPrice: number;
 
+  @Column({ name: 'voucher_code', type: 'varchar', length: 50, nullable: true })
+  voucherCode: string | null;
+
+  @Column({
+    name: 'discount_amount',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0.0,
+  })
+  discountAmount: number;
+
   @Column({ type: 'varchar', length: 20, default: 'open' })
   status: string;
 

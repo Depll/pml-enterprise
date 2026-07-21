@@ -6,6 +6,7 @@ import { OrderPosition } from '../database/entities/order-position.entity';
 import { CreateOrderDto } from './dto/orders.dto';
 import { InjectBot } from 'nestjs-telegraf';
 import { Telegraf } from 'telegraf';
+import { VouchersService } from '../voucher/vouchers.service';
 
 @Injectable()
 export class OrdersService {
@@ -13,11 +14,12 @@ export class OrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectBot() private readonly bot: Telegraf<any>,
+    private readonly vouchersService: VouchersService, // <-- Hier den VouchersService injizieren
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     // Nimmt telegramChatId automatisch aus den orderData mit auf
-    const { positions, ...orderData } = createOrderDto;
+    const { positions, voucherCode, ...orderData } = createOrderDto;
 
     const order = this.orderRepository.create(orderData);
 
@@ -39,6 +41,26 @@ export class OrdersService {
 
       return positionInstance;
     });
+
+    // Gutschein validieren und Rabatt anwenden, falls vorhanden
+    if (voucherCode && voucherCode.trim().length > 0) {
+      const subtotal = order.positions.reduce(
+        (sum, pos) => sum + Number(pos.priceSnapshot) * pos.quantity,
+        0,
+      );
+
+      const voucherResult = await this.vouchersService.validateVoucher({
+        code: voucherCode,
+        currentCartTotal: subtotal,
+      });
+
+      order.voucherCode = voucherResult.code;
+      order.discountAmount = voucherResult.discountAmount;
+      order.totalPrice = voucherResult.newTotal;
+    } else {
+      order.voucherCode = null;
+      order.discountAmount = 0.0;
+    }
 
     return await this.orderRepository.save(order);
   }

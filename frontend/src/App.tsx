@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom'; // Wichtig für URLs
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useCart } from './context/CartContext';
 import { Hero } from './components/Hero';
 import { SearchMenu } from './components/SearchMenu';
@@ -15,7 +15,7 @@ import { OrderStatus } from './components/OrderStatus';
 import { apiService } from './services/api';
 
 function App() {
-  const navigate = useNavigate(); // Hook für den echten URL-Wechsel
+  const navigate = useNavigate();
   
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isPostcodeModalOpen, setIsPostcodeModalOpen] = useState<boolean>(false);
@@ -24,6 +24,7 @@ function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   
   const [checkoutPrice, setCheckoutPrice] = useState<number>(0);
+  const [appliedVoucherCode, setAppliedVoucherCode] = useState<string | undefined>(undefined);
 
   const [postcode, setPostcode] = useState<string>(() => {
     return localStorage.getItem('milano_postcode') || localStorage.getItem('milano_plz') || '51373';
@@ -82,14 +83,13 @@ function App() {
     }
   };
 
-  // Behält deine bestehende URL-Logik für Kunden-Bestell-Tracking bei
   if (isCustomerTracking) {
     return <OrderStatus />;
   }
 
   return (
     <Routes>
-      {/* PFAD 1: Die Hauptseite des Pizza-Shops (Kundenansicht) */}
+      {/* PFAD 1: Die Hauptseite des Pizza-Shops */}
       <Route path="/" element={
         <div className="pml-app-wrapper">
           {lastOrderId && !hideBanner && (
@@ -122,15 +122,34 @@ function App() {
           <PrivacyModal isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} />
 
           <CheckoutForm 
-            isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)}
+            isOpen={isCheckoutOpen} 
+            onClose={() => setIsCheckoutOpen(false)}
             totalPrice={checkoutPrice > 0 ? checkoutPrice : totalPrice * 0.9}
-            cartItems={cartItems} currentPostcode={postcode} onOrderSuccess={clearCart}
+            cartItems={cartItems} 
+            currentPostcode={postcode} 
+            voucherCode={appliedVoucherCode}
+            onOrderSuccess={clearCart}
           />
 
-          <PostcodeModal isOpen={isPostcodeModalOpen} onClose={() => setIsPostcodeModalOpen(false)} onSave={handlePostcodeSave} currentPostcode={postcode} errorMessage={postcodeError} />
-          <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onOpenCheckout={(finalPrice) => { setCheckoutPrice(finalPrice); setIsCartOpen(false); setIsCheckoutOpen(true); }} />
+          <PostcodeModal 
+            isOpen={isPostcodeModalOpen} 
+            onClose={() => setIsPostcodeModalOpen(false)} 
+            onSave={handlePostcodeSave} 
+            currentPostcode={postcode} 
+            errorMessage={postcodeError} 
+          />
+          
+          <CartDrawer 
+            isOpen={isCartOpen} 
+            onClose={() => setIsCartOpen(false)} 
+            onOpenCheckout={(finalPrice, voucherCode) => { 
+              setCheckoutPrice(finalPrice); 
+              setAppliedVoucherCode(voucherCode);
+              setIsCartOpen(false); 
+              setIsCheckoutOpen(true); 
+            }} 
+          />
 
-          {/* Der Login-Button leitet jetzt sauber auf /kueche weiter */}
           <button
             onClick={() => navigate('/kueche')}
             style={{
@@ -146,12 +165,12 @@ function App() {
         </div>
       } />
 
-      {/* PFAD 2: Das Küchen-Dashboard unter einer eigenen, festen URL */}
+      {/* PFAD 2: Das Küchen-Dashboard */}
       <Route path="/kueche" element={
         <div>
           <div style={{ padding: '10px', backgroundColor: '#2d3748', borderBottom: '1px solid #4a5568' }}>
             <button 
-              onClick={() => navigate('/')} // Bringt den Admin zurück zum Storefront-Pfad
+              onClick={() => navigate('/')}
               style={{ padding: '6px 12px', backgroundColor: '#4a5568', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
             >
               ← Zurück zum Pizza-Shop

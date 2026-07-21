@@ -5,11 +5,13 @@ import { OrdersService } from './orders.service';
 import { Order } from '../database/entities/order.entity';
 import { OrderPosition } from '../database/entities/order-position.entity';
 import { TelegramModule } from '../telegram/telegram.module';
+import { VouchersModule } from '../voucher/vouchers.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderPosition]),
-    forwardRef(() => TelegramModule), // <-- Hier sauber mit forwardRef gelöst
+    forwardRef(() => TelegramModule),
+    VouchersModule, // <-- Hier sauber mit forwardRef gelöst
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

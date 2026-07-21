@@ -7,6 +7,7 @@ interface CheckoutFormProps {
   totalPrice: number;
   cartItems: any[];
   currentPostcode: string;
+  voucherCode?: string; // NEU: Gutscheincode aus dem Warenkorb
   onOrderSuccess: () => void;
 }
 
@@ -16,6 +17,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   currentPostcode, 
   totalPrice, 
   cartItems,
+  voucherCode, // NEU
   onOrderSuccess
 }) => {
   const [formData, setFormData] = useState({
@@ -85,11 +87,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       email: formData.email?.trim() || undefined, 
       deliveryNote: formData.comment?.trim() || undefined,
       totalPrice: Number(totalPrice), 
+      voucherCode: voucherCode || undefined, // NEU: Gutscheincode mitsenden
       positions: mappedPositions 
     };
 
     try {
-      // 1. Nutze den neuen apiService statt fetch
       const newOrder = await apiService.createOrder(payload);
 
       alert('Bestellung erfolgreich abgeschickt!');
@@ -97,9 +99,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       onClose();        
 
       localStorage.setItem('milano_last_order_id', newOrder.id.toString());
-      
-      // 2. DYNAMISCHE WEITERLEITUNG statt festem localhost:5173
-      // window.location.origin nimmt automatisch die aktuelle Domain (egal ob localhost oder Render!)
       window.location.href = `${window.location.origin}/?id=${newOrder.id}`;
 
     } catch (errorData: any) {
@@ -219,7 +218,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
           <div className="pml-checkout-footer" style={{ padding: '20px', borderTop: '1px solid #2d3748', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <span style={{ color: '#718096', fontSize: '14px' }}>Gesamtsumme</span>
+              <span style={{ color: '#718096', fontSize: '14px' }}>
+                Gesamtsumme {voucherCode ? `(inkl. Gutschein ${voucherCode})` : ''}
+              </span>
               <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#fff' }}>
                 {totalPrice.toFixed(2).replace('.', ',')} €
               </div>
