@@ -449,11 +449,10 @@ export class TelegramUpdate {
 
       try {
         const { total } = await this.calculateCartTotal(session.tempCart);
-        const voucher = await this.vouchersService.validateVoucher(
-        input, 
-        total, 
-       { code: input, currentCartTotal: total }
-      );
+        const voucher = await this.vouchersService.validateVoucher({
+        code: input,
+        currentCartTotal: total,
+        });
 
         session.contactData.appliedVoucherCode = voucher.code;
         session.contactData.discountAmount = voucher.discountAmount;
