@@ -72,6 +72,34 @@ export class SeedService {
   async runSeed() {
     const productCount = await this.productRepository.count();
 
+    // 5. Test-Gutscheine anlegen
+    const testVouchers = [
+      {
+        code: 'PML10',
+        type: 'PERCENTAGE' as const,
+        value: 10.0, // 10% Rabatt
+        minOrderValue: 15.0, // ab 15€
+        isActive: true,
+      },
+      {
+        code: 'WILLKOMMEN5',
+        type: 'FIXED' as const,
+        value: 5.0, // 5€ Rabatt
+        minOrderValue: 20.0, // ab 20€
+        isActive: true,
+      },
+    ];
+
+    for (const vData of testVouchers) {
+      const exists = await this.voucherRepository.findOne({
+        where: { code: vData.code },
+      });
+      if (!exists) {
+        await this.voucherRepository.save(this.voucherRepository.create(vData));
+        console.log(`🎟️ Gutschein ${vData.code} angelegt!`);
+      }
+    }
+
     if (productCount > 0) {
       console.log(
         '🌱 Datenbank enthält bereits Daten. Seeding wird übersprungen.',
@@ -230,33 +258,5 @@ export class SeedService {
     console.log(
       'Datenbank-Seeding mitsamt allen Korrekturen erfolgreich beendet!',
     );
-
-    // 5. Test-Gutscheine anlegen
-    const testVouchers = [
-      {
-        code: 'PML10',
-        type: 'PERCENTAGE' as const,
-        value: 10.0, // 10% Rabatt
-        minOrderValue: 15.0, // ab 15€
-        isActive: true,
-      },
-      {
-        code: 'WILLKOMMEN5',
-        type: 'FIXED' as const,
-        value: 5.0, // 5€ Rabatt
-        minOrderValue: 20.0, // ab 20€
-        isActive: true,
-      },
-    ];
-
-    for (const vData of testVouchers) {
-      const exists = await this.voucherRepository.findOne({
-        where: { code: vData.code },
-      });
-      if (!exists) {
-        await this.voucherRepository.save(this.voucherRepository.create(vData));
-        console.log(`🎟️ Gutschein ${vData.code} angelegt!`);
-      }
-    }
   }
 }
