@@ -30,6 +30,8 @@ export class UserSessionEntity {
     email?: string;
     deliveryNote?: string;
     kitchenNote?: string;
+    appliedVoucherCode?: string; // 👈 Neu
+    discountAmount?: number;
   };
 
   // Speichert die letzten X Nachrichten als Kontext-Array für OpenAI

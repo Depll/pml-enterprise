@@ -15,7 +15,7 @@ export class VouchersService {
     private readonly voucherRepository: Repository<VoucherEntity>,
   ) {}
 
-  async validateVoucher(dto: ValidateVoucherDto) {
+  async validateVoucher(input: string, total: number, dto: ValidateVoucherDto) {
     // Gutschein suchen (Groß-/Kleinschreibung ignorieren durch .toUpperCase())
     const voucher = await this.voucherRepository.findOne({
       where: { code: dto.code.toUpperCase(), isActive: true },

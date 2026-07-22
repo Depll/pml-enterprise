@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -14,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { UserSessionEntity } from '../database/entities/user-session.entity';
 import { AiOrderParserService } from './ai-order-parser.service';
 import { DialogHelperService } from './dialog-helper.service';
+import { VouchersService } from '../voucher/vouchers.service'; // NEU: VouchersService importiert
 import { Logger } from '@nestjs/common';
 import FormData from 'form-data';
 import axios from 'axios';
@@ -32,6 +34,7 @@ export class TelegramUpdate {
     private readonly httpService: HttpService,
     private readonly aiParserService: AiOrderParserService,
     private readonly dialogHelperService: DialogHelperService,
+    private readonly vouchersService: VouchersService, // NEU: Injiziert
     @InjectRepository(UserSessionEntity)
     private readonly sessionRepository: Repository<UserSessionEntity>,
   ) {}
@@ -122,7 +125,7 @@ export class TelegramUpdate {
       const trimmedText = text.trim();
       const lowerText = trimmedText.toLowerCase();
 
-      // 1. WENN EIN KONTAKT-STATE AKTIV IST
+      // 1. WENN EIN KONTAKT- STATE AKTIV IST
       if (session.state && session.state !== 'IDLE') {
         await this.handleContactStateMachine(ctx, session, trimmedText);
         return; 
@@ -303,9 +306,9 @@ export class TelegramUpdate {
       }
       session.contactData.customerName = trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_STREET';
@@ -321,9 +324,9 @@ export class TelegramUpdate {
       }
       session.contactData.street = trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_HOUSE_NUMBER';
@@ -339,9 +342,9 @@ export class TelegramUpdate {
       }
       session.contactData.houseNumber = trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_POSTCODE';
@@ -357,9 +360,9 @@ export class TelegramUpdate {
       }
       session.contactData.postcode = trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_CITY';
@@ -375,9 +378,9 @@ export class TelegramUpdate {
       }
       session.contactData.city = trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_PHONE';
@@ -393,9 +396,9 @@ export class TelegramUpdate {
       }
       session.contactData.phone = trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_EMAIL';
@@ -412,9 +415,9 @@ export class TelegramUpdate {
       }
       session.contactData.email = lowerEmail === 'keine' ? 'Keine' : trimmedText;
       if (this.isContactDataComplete(session)) {
-        session.state = 'IDLE';
+        session.state = 'AWAITING_VOUCHER';
         await saveProgress();
-        await this.showOrderSummary(ctx, session);
+        await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn ein oder antworte mit **"NEIN"**:');
         return;
       }
       session.state = 'AWAITING_DELIVERY_NOTE';
@@ -425,10 +428,47 @@ export class TelegramUpdate {
 
     if (session.state === 'AWAITING_DELIVERY_NOTE') {
       session.contactData.deliveryNote = trimmedText.toLowerCase() === 'keine' ? 'Keine' : trimmedText;
-      session.state = 'IDLE';
+      session.state = 'AWAITING_VOUCHER';
       await saveProgress();
-      await this.showOrderSummary(ctx, session);
+      await ctx.reply('🎟️ Hast du einen Gutscheincode? Gib ihn jetzt ein oder antworte mit **"NEIN"**, um fortzufahren:');
       return;
+    }
+
+    // NEU: GUTSCHEIN-ABFRAGE STEP
+    if (session.state === 'AWAITING_VOUCHER') {
+      const input = trimmedText.trim().toUpperCase();
+
+      if (input === 'NEIN' || input === 'KEINE' || input === 'KEINER' || input === 'SKIP' || input === 'NEIN DANKE') {
+        session.contactData.appliedVoucherCode = undefined;
+        session.contactData.discountAmount = 0;
+        session.state = 'IDLE';
+        await saveProgress();
+        await this.showOrderSummary(ctx, session);
+        return;
+      }
+
+      try {
+        const { total } = await this.calculateCartTotal(session.tempCart);
+        const voucher = await this.vouchersService.validateVoucher(
+        input, 
+        total, 
+       { code: input, currentCartTotal: total }
+      );
+
+        session.contactData.appliedVoucherCode = voucher.code;
+        session.contactData.discountAmount = voucher.discountAmount;
+        session.state = 'IDLE';
+        await saveProgress();
+
+        await ctx.reply(`🎉 Gutschein **${voucher.code}** erfolgreich eingelöst! Du sparst **${voucher.discountAmount.toFixed(2)}€**! 🎟️✨`, { parse_mode: 'Markdown' });
+        await this.showOrderSummary(ctx, session);
+        return;
+      } catch (error: any) {
+        await ctx.reply(
+          `❌ Dieser Gutscheincode existiert nicht oder ist ungültig.\nBitte versuche es erneut oder antworte mit **"NEIN"**, um fortzufahren.`
+        );
+        return;
+      }
     }
   }
 
@@ -537,6 +577,9 @@ export class TelegramUpdate {
     const { total, itemsWithPrices } = await this.calculateCartTotal(session.tempCart);
     const contact = session.contactData;
 
+    const discountAmount = Number(contact.discountAmount || 0);
+    const finalTotal = Math.max(0, total - discountAmount);
+
     let summaryText = `📝 **Bitte kontrolliere deine Bestellung:**\n\n`;
     summaryText += `🛒 **Warenkorb:**\n`;
 
@@ -553,6 +596,11 @@ export class TelegramUpdate {
     });
 
     summaryText += `💰 **Warenwert:** *${total.toFixed(2)}€*\n`;
+
+    if (contact.appliedVoucherCode && discountAmount > 0) {
+      summaryText += `🎟️ **Gutschein (${contact.appliedVoucherCode}):** *-${discountAmount.toFixed(2)}€*\n`;
+      summaryText += `💵 **Endbetrag:** *${finalTotal.toFixed(2)}€*\n`;
+    }
 
     if (total < MIN_ORDER_VALUE) {
       const rest = MIN_ORDER_VALUE - total;
@@ -591,6 +639,9 @@ export class TelegramUpdate {
       return;
     }
 
+    const discountAmount = Number(contact.discountAmount || 0);
+    const finalTotal = Math.max(0, total - discountAmount);
+
     const processingMsg = await ctx.reply('⏳ Deine Bestellung wird an die Küche übermittelt... Bitte warte einen kurzen Moment.');
 
     const createOrderPayload = {
@@ -603,7 +654,8 @@ export class TelegramUpdate {
       phone: contact.phone!,
       email: contact.email === 'Keine' ? undefined : contact.email,
       deliveryNote: contact.deliveryNote === 'Keine' ? undefined : contact.deliveryNote,
-      totalPrice: total,
+      voucherCode: contact.appliedVoucherCode || undefined,
+      totalPrice: finalTotal,
       positions: itemsWithPrices.map((item) => {
         const convertedId = Number(item.productId);
         return {
