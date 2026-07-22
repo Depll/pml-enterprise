@@ -172,4 +172,20 @@ export const apiService = {
     }
   },
 
+  // ==========================================
+  // MUTATIONS / CHECKS (VOUCHERS)
+  // ==========================================
+  validateVoucher: async (code: string, currentCartTotal: number): Promise<{ valid: boolean; code: string; discountAmount: number }> => {
+    try {
+      const response = await apiClient.post('/vouchers/validate', {
+        code,
+        currentCartTotal,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Fehler bei der Gutschein-Validierung:', error);
+      throw error.response?.data || error;
+    }
+  },
+
 };

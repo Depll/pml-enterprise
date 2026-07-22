@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { apiService } from '../services/api';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -42,20 +43,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
 
     setIsValidating(true);
     try {
-      const response = await fetch('/vouchers/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: voucherInput.trim(),
-          currentCartTotal: totalPrice - webDiscountAmount,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Ungültiger Gutscheincode');
-      }
+      // Nutzt jetzt die konfigurierte API-URL statt des relativen Fetch
+      const data = await apiService.validateVoucher(
+        voucherInput.trim(),
+        totalPrice - webDiscountAmount
+      );
 
       setAppliedVoucher({
         code: data.code,
@@ -64,7 +56,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenC
       setVoucherInput('');
     } catch (err: any) {
       setAppliedVoucher(null);
-      setVoucherError(err.message || 'Gutschein konnte nicht eingelöst werden');
+      setVoucherError(
+        Array.isArray(err.message) 
+          ? err.message.join(', ') 
+          : (err.message || 'Gutschein konnte nicht eingelöst werden')
+      );
     } finally {
       setIsValidating(false);
     }
