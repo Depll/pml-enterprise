@@ -12,8 +12,6 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // NEU: Hier speichern wir die Chat-ID des Kunden aus Telegram
-  // Als varchar und nullable, falls mal eine Bestellung nicht über Telegram reinkommt
   @Column({
     name: 'telegram_chat_id',
     type: 'varchar',
@@ -55,8 +53,10 @@ export class Order {
   })
   totalPrice: number;
 
+  // FEINHEIT: Hier heisst das Property `appliedVoucherCode`, greift aber auf DB-Spalte `voucher_code` zu!
+  // Dadurch versteht dein Admin-Dashboard den Namen sofort.
   @Column({ name: 'voucher_code', type: 'varchar', length: 50, nullable: true })
-  voucherCode: string | null;
+  appliedVoucherCode: string | null;
 
   @Column({
     name: 'discount_amount',

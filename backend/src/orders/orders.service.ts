@@ -14,11 +14,10 @@ export class OrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectBot() private readonly bot: Telegraf<any>,
-    private readonly vouchersService: VouchersService, // <-- Hier den VouchersService injizieren
+    private readonly vouchersService: VouchersService,
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
-    // Nimmt telegramChatId automatisch aus den orderData mit auf
     const { positions, voucherCode, ...orderData } = createOrderDto;
 
     const order = this.orderRepository.create(orderData);
@@ -28,8 +27,6 @@ export class OrdersService {
 
       positionInstance.quantity = pos.quantity;
       positionInstance.priceSnapshot = pos.priceSnapshot;
-
-      // Weist einen leeren String zu, falls das Feld undefined oder null ist
       positionInstance.selectedSize = pos.selectedSize ?? '';
       positionInstance.selectedOption = pos.selectedOption ?? '';
       positionInstance.comment = pos.comment ?? '';
@@ -42,24 +39,26 @@ export class OrdersService {
       return positionInstance;
     });
 
-    // Gutschein validieren und Rabatt anwenden, falls vorhanden
-    if (voucherCode && voucherCode.trim().length > 0) {
-      const subtotal = order.positions.reduce(
-        (sum, pos) => sum + Number(pos.priceSnapshot) * pos.quantity,
-        0,
-      );
+    // 1. Zwischensumme berechnen
+    const subtotal = order.positions.reduce(
+      (sum, pos) => sum + Number(pos.priceSnapshot) * pos.quantity,
+      0,
+    );
 
+    // 2. Gutschein prüfen und Endsumme berechnen
+    if (voucherCode && voucherCode.trim().length > 0) {
       const voucherResult = await this.vouchersService.validateVoucher({
         code: voucherCode,
         currentCartTotal: subtotal,
       });
 
-      order.voucherCode = voucherResult.code;
+      order.appliedVoucherCode = voucherResult.code;
       order.discountAmount = voucherResult.discountAmount;
       order.totalPrice = voucherResult.newTotal;
     } else {
-      order.voucherCode = null;
+      order.appliedVoucherCode = null;
       order.discountAmount = 0.0;
+      order.totalPrice = subtotal; // WICHTIG: Wenn kein Gutschein, ist der Endpreis = Zwischensumme
     }
 
     return await this.orderRepository.save(order);
@@ -94,14 +93,11 @@ export class OrdersService {
       order.stornoReason = stornoReason;
     }
 
-    // 1. In der Datenbank speichern
     const savedOrder = await this.orderRepository.save(order);
 
-    // 2. Status-Update an Telegram senden, falls eine Chat-ID vorhanden ist
     if (savedOrder.telegramChatId) {
-      let message = `🔔 *Status-Update zu deiner Bestellung # ${savedOrder.id.substring(0, 8)}...*\n\n`;
+      let message = `🔔 *Status-Update zu deiner Bestellung #${savedOrder.id.substring(0, 8)}...*\n\n`;
 
-      // Matcht jetzt exakt deine allowedStatuses ('open', 'zubereitung', 'erledigt', 'storniert')
       switch (status.toLowerCase()) {
         case 'open':
           message += `⏳ Deine Bestellung ist eingegangen und wartet auf Bestätigung!`;
@@ -116,7 +112,6 @@ export class OrdersService {
           message += `❌ Deine Bestellung musste leider storniert werden.\nGrund: ${stornoReason || 'Keine Angabe'}`;
           break;
         default:
-          // Falls ein unbekannter Status kommt, senden wir nichts
           return savedOrder;
       }
 

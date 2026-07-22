@@ -62,6 +62,8 @@ interface Order {
   email: string | null;
   deliveryNote: string | null; 
   totalPrice: number;   
+  appliedVoucherCode?: string | null; // 👈 Gutschein-Code
+  discountAmount?: number | null;     // 👈 Rabattbetrag
   status: string; 
   stornoReason: string | null; 
   createdAt: string;    
@@ -260,9 +262,8 @@ export const AdminDashboard: React.FC = () => {
   // ==========================================
 
   const handleUpdateStatus = async (orderId: string, newStatus: string, cancellationReason?: string) => {
-    // Ruft die Funktion aus der api.ts auf
     const success = await apiService.updateOrderStatus(orderId, newStatus, cancellationReason);
-    if (success) fetchOrders(); // Lädt die Bestellungen neu, wenn es geklappt hat
+    if (success) fetchOrders();
   };
 
   const handleCancelOrder = (orderId: string) => {
@@ -301,7 +302,6 @@ export const AdminDashboard: React.FC = () => {
     const parsedPrice = parseFloat(priceText.replace(',', '.'));
     const finalPrice = isNaN(parsedPrice) ? 0.0 : parsedPrice;
 
-    // Nutzt jetzt Axios über die api.ts
     const success = await apiService.addIngredient(productId, name, finalPrice);
 
     if (success) {
@@ -334,15 +334,12 @@ export const AdminDashboard: React.FC = () => {
 
     const generatedSku = `PROD-${Date.now()}`;
 
-    // Hier bauen wir das Payload-Objekt wie gewohnt
     const payload: Record<string, unknown> = {
       sku: generatedSku,
       name: newProductName,
       description: newProductDescription,
       price: parseFloat(newProductPrice.replace(',', '.')),
       categoryId: Number(newProductCategoryId),
-      // Wenn dein Backend 'is_active' (Spaltenname) statt 'isActive' erwartet,
-      // schreiben wir es hier direkt so rein, damit die DB es versteht:
       is_active: true, 
     };
 
@@ -359,10 +356,8 @@ export const AdminDashboard: React.FC = () => {
     }
 
     try {
-      // API aufrufen (wirft im Fehlerfall die Servermeldung per throw)
       await apiService.addProduct(payload);
 
-      // State zurücksetzen bei Erfolg
       setNewProductName('');
       setNewProductDescription('');
       setNewProductPrice('');
@@ -371,10 +366,13 @@ export const AdminDashboard: React.FC = () => {
       setNewProductOptionText('');
       fetchMenu(); 
     } catch (errResult: any) {
-      // Fehlermeldung vom NestJS-Backend anzeigen
       alert(`Server-Fehler: ${JSON.stringify(errResult.message || errResult)}`);
     }
   };
+
+  // ==========================================
+  // PRINT BON WITH VOUCHER SUPPORT
+  // ==========================================
 
   const handlePrintOrder = (order: Order) => {
     const oldFrame = document.getElementById('print-iframe-container');
@@ -398,6 +396,10 @@ export const AdminDashboard: React.FC = () => {
       </div>
     `).join('') || '';
 
+    const rawTotal = Number(order.totalPrice || 0);
+    const discount = Number(order.discountAmount || 0);
+    const finalTotal = Math.max(0, rawTotal - discount);
+
     doc.write(`
       <html>
       <head>
@@ -407,6 +409,7 @@ export const AdminDashboard: React.FC = () => {
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .hr { border-top: 1px solid #000; margin: 10px 0; }
+          .flex-between { display: flex; justify-content: space-between; }
         </style>
       </head>
       <body>
@@ -425,7 +428,20 @@ export const AdminDashboard: React.FC = () => {
         <div class="bold">POSITIONEN:</div>
         ${positionsHtml}
         <div class="hr"></div>
-        <div class="bold" style="font-size: 16px; text-align: right;">GESAMT: ${Number(order.totalPrice).toFixed(2).replace('.', ',')} €</div>
+        
+        ${order.appliedVoucherCode && discount > 0 ? `
+          <div class="flex-between"><span>Zwischensumme:</span> <span>${rawTotal.toFixed(2).replace('.', ',')} €</span></div>
+          <div class="flex-between" style="font-weight:bold;">
+            <span>Gutschein (${order.appliedVoucherCode}):</span> 
+            <span>-${discount.toFixed(2).replace('.', ',')} €</span>
+          </div>
+          <div class="hr"></div>
+        ` : ''}
+
+        <div class="bold flex-between" style="font-size: 16px;">
+          <span>GESAMT:</span> 
+          <span>${finalTotal.toFixed(2).replace('.', ',')} €</span>
+        </div>
       </body>
       </html>
     `);
@@ -447,7 +463,14 @@ export const AdminDashboard: React.FC = () => {
   }, [soundEnabled]);
 
   const activeOrdersOnly = orders.filter(o => o.status !== 'storniert');
-  const totalRevenue = activeOrdersOnly.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+  
+  // KPI Berechnung inklusive Rabatte
+  const totalRevenue = activeOrdersOnly.reduce((sum, o) => {
+    const rawTotal = Number(o.totalPrice || 0);
+    const discount = Number(o.discountAmount || 0);
+    return sum + Math.max(0, rawTotal - discount);
+  }, 0);
+
   const totalDishes = activeOrdersOnly.reduce((sum, order) => sum + (order.positions?.reduce((positionSum, position) => positionSum + position.quantity, 0) || 0), 0);
   const averageOrderValue = activeOrdersOnly.length > 0 ? totalRevenue / activeOrdersOnly.length : 0;
 
@@ -543,140 +566,155 @@ export const AdminDashboard: React.FC = () => {
           <p className="text-slate-400 text-base italic mt-4">Keine Bestellungen in dieser Kategorie. 🎉</p>
         ) : (
           <div className="flex flex-col gap-5">
-            {filteredOrders.map((order) => (
-              <div key={order.id} className="border border-slate-800 rounded-lg p-5 bg-slate-800 shadow-md">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-2.5 mb-3 gap-3">
-                  <div>
-                    <strong className="text-base sm:text-lg text-white">Bestellung #{order.id.substring(0, 8)}</strong> - <span className="font-medium text-slate-200">{order.customerName}</span>
-                    <br /><span className="text-xs text-slate-400 font-mono">{new Date(order.createdAt).toLocaleString('de-DE')}</span>
-                  </div>
-                  <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                    <div className="text-lg font-bold text-emerald-400 font-mono">{Number(order.totalPrice).toFixed(2).replace('.', ',')} €</div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handlePrintOrder(order)} 
-                        className="p-2 bg-slate-700 border-none text-white rounded cursor-pointer hover:bg-slate-600 transition-colors"
-                        title="Küchenbon drucken"
-                      >
-                        🖨️
-                      </button>
-                      
-                      {order.status === 'open' && (
-                        <>
+            {filteredOrders.map((order) => {
+              const rawTotal = Number(order.totalPrice || 0);
+              const discount = Number(order.discountAmount || 0);
+              const finalPrice = Math.max(0, rawTotal - discount);
+
+              return (
+                <div key={order.id} className="border border-slate-800 rounded-lg p-5 bg-slate-800 shadow-md">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-2.5 mb-3 gap-3">
+                    <div>
+                      <strong className="text-base sm:text-lg text-white">Bestellung #{order.id.substring(0, 8)}</strong> - <span className="font-medium text-slate-200">{order.customerName}</span>
+                      <br /><span className="text-xs text-slate-400 font-mono">{new Date(order.createdAt).toLocaleString('de-DE')}</span>
+                    </div>
+                    <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                      <div className="text-right">
+                        {order.appliedVoucherCode && discount > 0 && (
+                          <div className="text-xs text-amber-400 font-bold">
+                            🎟️ {order.appliedVoucherCode} (-{discount.toFixed(2).replace('.', ',')} €)
+                          </div>
+                        )}
+                        <div className="text-lg font-bold text-emerald-400 font-mono">
+                          {finalPrice.toFixed(2).replace('.', ',')} €
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handlePrintOrder(order)} 
+                          className="p-2 bg-slate-700 border-none text-white rounded cursor-pointer hover:bg-slate-600 transition-colors"
+                          title="Küchenbon drucken"
+                        >
+                          🖨️
+                        </button>
+                        
+                        {order.status === 'open' && (
+                          <>
+                            <button 
+                              onClick={() => handleUpdateStatus(order.id, 'zubereitung')} 
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
+                            >
+                              👨‍🍳 In den Ofen
+                            </button>
+                            <button 
+                              onClick={() => handleCancelOrder(order.id)} 
+                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
+                            >
+                              ❌ Stornieren
+                            </button>
+                          </>
+                        )}
+                        {order.status === 'zubereitung' && (
+                          <>
+                            <button 
+                              onClick={() => handleUpdateStatus(order.id, 'erledigt')} 
+                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
+                            >
+                              ✔ Fertig
+                            </button>
+                            <button 
+                              onClick={() => handleCancelOrder(order.id)} 
+                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
+                            >
+                              ❌ Stornieren
+                            </button>
+                          </>
+                        )}
+                        {(order.status === 'erledigt' || order.status === 'storniert') && (
                           <button 
                             onClick={() => handleUpdateStatus(order.id, 'zubereitung')} 
-                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
                           >
-                            👨‍🍳 In den Ofen
+                            ↩ Reaktivieren
                           </button>
-                          <button 
-                            onClick={() => handleCancelOrder(order.id)} 
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
-                          >
-                            ❌ Stornieren
-                          </button>
-                        </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-1">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-1">Adresse</h4>
+                      <p className="text-sm leading-relaxed text-slate-300">
+                        {order.street} {order.houseNumber}<br />
+                        {order.postcode} {order.city}<br />
+                        <span className="font-semibold text-slate-400">Tel:</span> {order.phone}
+                        {order.email && (
+                          <>
+                            <br />
+                            <span className="font-semibold text-slate-400">E-Mail:</span>{" "}
+                            <a href={`mailto:${order.email}`} className="text-blue-400 hover:underline">
+                              {order.email}
+                            </a>
+                          </>
+                        )}
+                      </p>
+                      
+                      {order.deliveryNote && (
+                        <div className="mt-2.5 p-2 bg-slate-900 rounded text-xs border border-slate-700 text-slate-300">
+                          <strong className="text-amber-400">Anmerkung:</strong> "{order.deliveryNote}"
+                        </div>
                       )}
-                      {order.status === 'zubereitung' && (
-                        <>
-                          <button 
-                            onClick={() => handleUpdateStatus(order.id, 'erledigt')} 
-                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
-                          >
-                            ✔ Fertig
-                          </button>
-                          <button 
-                            onClick={() => handleCancelOrder(order.id)} 
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
-                          >
-                            ❌ Stornieren
-                          </button>
-                        </>
+
+                      {order.stornoReason && (
+                        <div className="mt-4 p-2.5 bg-red-950/50 border-l-4 border-red-500 rounded">
+                          <strong className="text-xs text-red-300">Stornogrund:</strong>
+                          <p className="margin-0 text-xs text-white italic mt-0.5">"{order.stornoReason}"</p>
+                        </div>
                       )}
-                      {(order.status === 'erledigt' || order.status === 'storniert') && (
-                        <button 
-                          onClick={() => handleUpdateStatus(order.id, 'zubereitung')} 
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border-none rounded cursor-pointer font-bold text-sm transition-colors"
-                        >
-                          ↩ Reaktivieren
-                        </button>
-                      )}
+                    </div>
+                    <div className="lg:col-span-2">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-1">Gerichte</h4>
+                      <ul className="pl-5 m-0 space-y-2 list-disc text-slate-300">
+                        {order.positions?.map((position) => {
+                          const allIngredients = categories.flatMap(category => category.products.flatMap(product => product.ingredients || []));
+                          
+                          const extraIngredientNames = (position.selectedIngredientsIds || [])
+                            .map(id => allIngredients.find(ingredient => ingredient.id === id)?.name)
+                            .filter(Boolean);
+
+                          const removedIngredientNames = (position.removedIngredientsIds || [])
+                            .map(id => allIngredients.find(ingredient => ingredient.id === id)?.name)
+                            .filter(Boolean);
+
+                          return (
+                            <li key={position.id} className="text-sm">
+                              <strong className="text-white">{position.quantity}x {position.product?.name || `ID ${position.productId}`}</strong>
+                              {position.selectedSize && <span className="text-blue-400 font-bold ml-1">[{position.selectedSize}]</span>}
+                              {position.selectedOption && <span className="text-purple-400 italic ml-1">({position.selectedOption})</span>}
+                              <span className="font-mono text-slate-400 text-xs ml-1">({Number(position.priceSnapshot).toFixed(2)} €)</span>
+                              
+                              {position.comment && <div className="text-xs text-slate-400 pl-1.5 italic mt-0.5">↳ Anmerkung: "{position.comment}"</div>}
+                              
+                              {extraIngredientNames.length > 0 && (
+                                <div className="text-xs text-emerald-400 pl-1.5 font-medium mt-0.5">
+                                  ➕ Extra: {extraIngredientNames.join(', ')}
+                                </div>
+                              )}
+
+                              {removedIngredientNames.length > 0 && (
+                                <div className="text-xs text-red-400 pl-1.5 font-medium mt-0.5 line-through">
+                                  ❌ Ohne: {removedIngredientNames.join(', ')}
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-1">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-1">Adresse</h4>
-                    <p className="text-sm leading-relaxed text-slate-300">
-                      {order.street} {order.houseNumber}<br />
-                      {order.postcode} {order.city}<br />
-                      <span className="font-semibold text-slate-400">Tel:</span> {order.phone}
-                      {order.email && (
-                        <>
-                          <br />
-                          <span className="font-semibold text-slate-400">E-Mail:</span>{" "}
-                          <a href={`mailto:${order.email}`} className="text-blue-400 hover:underline">
-                            {order.email}
-                          </a>
-                        </>
-                      )}
-                    </p>
-                    
-                    {order.deliveryNote && (
-                      <div className="mt-2.5 p-2 bg-slate-900 rounded text-xs border border-slate-700 text-slate-300">
-                        <strong className="text-amber-400">Anmerkung:</strong> "{order.deliveryNote}"
-                      </div>
-                    )}
-
-                    {order.stornoReason && (
-                      <div className="mt-4 p-2.5 bg-red-950/50 border-l-4 border-red-500 rounded">
-                        <strong className="text-xs text-red-300">Stornogrund:</strong>
-                        <p className="margin-0 text-xs text-white italic mt-0.5">"{order.stornoReason}"</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="lg:col-span-2">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-1">Gerichte</h4>
-                    <ul className="pl-5 m-0 space-y-2 list-disc text-slate-300">
-                      {order.positions?.map((position) => {
-                        const allIngredients = categories.flatMap(category => category.products.flatMap(product => product.ingredients || []));
-                        
-                        const extraIngredientNames = (position.selectedIngredientsIds || [])
-                          .map(id => allIngredients.find(ingredient => ingredient.id === id)?.name)
-                          .filter(Boolean);
-
-                        const removedIngredientNames = (position.removedIngredientsIds || [])
-                          .map(id => allIngredients.find(ingredient => ingredient.id === id)?.name)
-                          .filter(Boolean);
-
-                        return (
-                          <li key={position.id} className="text-sm">
-                            <strong className="text-white">{position.quantity}x {position.product?.name || `ID ${position.productId}`}</strong>
-                            {position.selectedSize && <span className="text-blue-400 font-bold ml-1">[{position.selectedSize}]</span>}
-                            {position.selectedOption && <span className="text-purple-400 italic ml-1">({position.selectedOption})</span>}
-                            <span className="font-mono text-slate-400 text-xs ml-1">({Number(position.priceSnapshot).toFixed(2)} €)</span>
-                            
-                            {position.comment && <div className="text-xs text-slate-400 pl-1.5 italic mt-0.5">↳ Anmerkung: "{position.comment}"</div>}
-                            
-                            {extraIngredientNames.length > 0 && (
-                              <div className="text-xs text-emerald-400 pl-1.5 font-medium mt-0.5">
-                                ➕ Extra: {extraIngredientNames.join(', ')}
-                              </div>
-                            )}
-
-                            {removedIngredientNames.length > 0 && (
-                              <div className="text-xs text-red-400 pl-1.5 font-medium mt-0.5 line-through">
-                                ❌ Ohne: {removedIngredientNames.join(', ')}
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )
       )}
