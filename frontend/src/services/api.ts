@@ -188,4 +188,17 @@ export const apiService = {
     }
   },
 
+  // ==========================================
+  // GETTERS (STATISTICS)
+  // ==========================================
+  fetchStatistics: async (): Promise<any> => {
+    try {
+      const response = await apiClient.get('/statistics');
+      return response.data;
+    } catch (error) {
+      console.error('Fehler beim Laden der Statistiken:', error);
+      throw error;
+    }
+  },
+
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiService } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 // ==========================================
 // TYPE DEFINITIONS & INTERFACES
@@ -71,6 +72,7 @@ interface Order {
 }
 
 export const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   // ==========================================
   // STATE MANAGEMENT
   // ==========================================
@@ -481,8 +483,16 @@ export const AdminDashboard: React.FC = () => {
       
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
-        <h2 className="text-xl sm:text-2xl font-bold tracking-wide">🍕 Milano Enterprise - Küchen-Dashboard</h2>
-        <div className="flex gap-2.5 items-center w-full sm:w-auto justify-end">
+  <h2 className="text-xl sm:text-2xl font-bold tracking-wide">🍕 Milano Enterprise - Küchen-Dashboard</h2>
+  <div className="flex gap-2.5 items-center w-full sm:w-auto justify-end">
+    
+    {/* NEUER STATISTIK BUTTON */}
+    <button
+      onClick={() => navigate('/kueche/statistik')}
+      className="px-4 py-2 text-sm rounded border-none font-bold text-white cursor-pointer bg-amber-600 hover:bg-amber-700 transition-colors flex items-center gap-1.5"
+    >
+      📊 Zur Statistik
+    </button>
           <button
             onClick={toggleSound}
             className={`px-4 py-2 text-sm rounded border-none font-bold text-white cursor-pointer transition-colors ${

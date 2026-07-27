@@ -13,6 +13,7 @@ import { CheckoutForm } from './components/CheckoutForm';
 import { AdminDashboard } from './components/AdminDashboard'; 
 import { OrderStatus } from './components/OrderStatus'; 
 import { apiService } from './services/api';
+import { AdminStatistics } from './components/AdminStatistics';
 
 function App() {
   const navigate = useNavigate();
@@ -179,6 +180,7 @@ function App() {
           <AdminDashboard />
         </div>
       } />
+      <Route path="/kueche/statistik" element={<AdminStatistics />} />
     </Routes>
   );
 }

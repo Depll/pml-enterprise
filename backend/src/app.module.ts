@@ -22,6 +22,7 @@ import { OrdersModule } from './orders/orders.module';
 import { VouchersModule } from './voucher/vouchers.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { AppService } from './app.service';
     OrdersModule,
     TelegramModule,
     VouchersModule, // <-- Hier in den Modul-Imports hinzugefügt!
+    StatisticsModule,
   ],
   controllers: [AppController],
   providers: [AppService, SeedService],
